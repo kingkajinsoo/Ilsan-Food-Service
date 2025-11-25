@@ -1,0 +1,5 @@
+{
+  "name": "Ilsan Food Service Portal",
+  "description": "A portal for Goyang-si Ilsanseo-gu Restaurant Association members to order beverages and request aprons. Features a 'Buy 3 Get 1 Free' logic and Admin Dashboard.",
+  "requestFramePermissions": []
+}
