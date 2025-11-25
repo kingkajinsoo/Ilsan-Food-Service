@@ -3,8 +3,22 @@ export interface UserProfile {
   email: string | null;
   name: string | null;
   business_name: string | null;
+  business_number?: string | null;
+  business_name_updated?: boolean;
+  business_number_updated?: boolean;
   phone: string | null;
   role: 'user' | 'admin';
+  created_at: string;
+  terms_agreed_at?: string | null;
+  privacy_agreed_at?: string | null;
+}
+
+export interface UserAddress {
+  id: string;
+  user_id: string;
+  address: string;
+  detail_address: string | null;
+  is_main: boolean;
   created_at: string;
 }
 
@@ -35,6 +49,7 @@ export interface Order {
   total_amount: number;
   total_boxes: number;
   service_items: OrderItem[];
+  delivery_address?: string;
   created_at: string;
   status: 'pending' | 'confirmed' | 'delivered' | 'cancelled';
 }

@@ -14,14 +14,18 @@ export const Order: React.FC = () => {
   // Cart State: { productId: quantity }
   const [cart, setCart] = useState<Record<string, number>>({});
   const [serviceItem, setServiceItem] = useState<string>('');
+  const [usedServiceBoxesThisMonth, setUsedServiceBoxesThisMonth] = useState(0);
+	const [willAutoApron, setWillAutoApron] = useState(false);
+	const [supportsBizNumber, setSupportsBizNumber] = useState(false);
 
-  // User Form State
-  const [formData, setFormData] = useState({
-    business_name: '',
-    phone: '',
-    address: '',
-    detailAddress: ''
-  });
+	// User Form State
+	const [formData, setFormData] = useState({
+	  business_name: '',
+	  businessNumber: '',
+	  phone: '',
+	  address: '',
+	  detailAddress: ''
+	});
 
   // Daum Postcode
   const openAddressSearch = () => {
@@ -60,12 +64,75 @@ export const Order: React.FC = () => {
         const { data: profile } = await supabase.from('users').select('*').eq('id', session.user.id).single();
         if (profile) {
           setUser(profile as UserProfile);
-          setFormData(prev => ({
-            ...prev,
-            business_name: profile.business_name || '',
-            phone: profile.phone || ''
-          }));
+	        setFormData(prev => ({
+	          ...prev,
+	          business_name: profile.business_name || '',
+	          businessNumber: 'business_number' in (profile as any)
+	            ? formatBizNumber(((profile as any).business_number as string | null) || '')
+	            : prev.businessNumber,
+	          phone: profile.phone || ''
+	        }));
+
+	        if ('business_number' in (profile as any)) {
+	          setSupportsBizNumber(true);
+	        }
         }
+
+        // Calculate how many free service boxes (3+1) this user already received this month
+        try {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+          const { data: pastOrders, error: pastOrdersError } = await supabase
+            .from('orders')
+            .select('service_items, created_at')
+            .eq('user_id', session.user.id)
+            .gte('created_at', startOfMonth.toISOString());
+
+          if (!pastOrdersError && pastOrders) {
+            let used = 0;
+            (pastOrders as any[]).forEach((order: any) => {
+              const serviceItems = (order.service_items || []) as any[];
+              serviceItems.forEach((item: any) => {
+                if (item && typeof item.quantity === 'number') {
+                  used += item.quantity;
+                }
+              });
+            });
+            setUsedServiceBoxesThisMonth(used);
+          }
+        } catch (e) {
+          console.error('Failed to calculate used service boxes this month', e);
+        }
+
+	        // Determine whether this business will get apron auto-application on the next order
+	        try {
+	          const { count: existingOrderCount, error: orderCountError } = await supabase
+	            .from('orders')
+	            .select('*', { count: 'exact', head: true })
+	            .eq('user_id', session.user.id);
+
+	          if (orderCountError) {
+	            console.error('Failed to check existing orders for apron info', orderCountError);
+	          } else {
+	            const isFirstOrder = (existingOrderCount ?? 0) === 0;
+
+	            const { data: apronData, error: apronError } = await supabase
+	              .from('apron_requests')
+	              .select('id')
+	              .eq('user_id', session.user.id)
+	              .limit(1);
+
+	            if (apronError) {
+	              console.error('Failed to check apron_requests for apron info', apronError);
+	            }
+
+	            const hasExistingApron = !!(apronData && apronData.length > 0);
+	            setWillAutoApron(isFirstOrder && !hasExistingApron);
+	          }
+	        } catch (e) {
+	          console.error('Failed to calculate apron auto-application info', e);
+	        }
       } else {
         alert('로그인이 필요한 서비스입니다.');
         navigate('/');
@@ -104,6 +171,39 @@ export const Order: React.FC = () => {
     init();
   }, [navigate]);
 
+	// Helpers for formatting business registration number & phone number
+	const formatBizNumber = (value: string): string => {
+	  const digits = value.replace(/\D/g, '').slice(0, 10); // 최대 10자리 (예: 123-45-67890)
+	  if (digits.length <= 3) return digits;
+	  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+	  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+	};
+
+	const formatPhoneNumber = (value: string): string => {
+	  const digits = value.replace(/\D/g, '').slice(0, 11); // 국내 휴대폰 10~11자리 기준
+	  if (digits.length <= 3) return digits;
+	  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+	  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+	};
+
+	const handleBusinessNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	  const raw = e.target.value.replace(/\D/g, '');
+	  const formatted = formatBizNumber(raw);
+	  setFormData(prev => ({
+	    ...prev,
+	    businessNumber: formatted,
+	  }));
+	};
+
+	const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	  const raw = e.target.value.replace(/\D/g, '');
+	  const formatted = formatPhoneNumber(raw);
+	  setFormData(prev => ({
+	    ...prev,
+	    phone: formatted,
+	  }));
+	};
+
   const updateQuantity = (productId: string, delta: number) => {
     setCart(prev => {
       const current = prev[productId] || 0;
@@ -130,7 +230,13 @@ export const Order: React.FC = () => {
   });
 
   // 3+1 Logic
-  const serviceBoxesCount = (totalPaidBoxes >= 3 && hasPepsi) ? Math.floor(totalPaidBoxes / 3) : 0;
+	  const rawServiceBoxes = (totalPaidBoxes >= 3 && hasPepsi)
+	    ? Math.floor(totalPaidBoxes / 3)
+	    : 0;
+
+	  const remainingFreeBoxes = Math.max(0, 10 - usedServiceBoxesThisMonth);
+
+	  const serviceBoxesCount = Math.min(rawServiceBoxes, remainingFreeBoxes);
 
   // Auto-select cheapest product as service item
   useEffect(() => {
@@ -167,10 +273,10 @@ export const Order: React.FC = () => {
     : 0;
 
   // Order validation: 3박스 이상이면 펩시 필수!
-  const isValidOrder = totalPaidBoxes > 0 &&
-    (totalPaidBoxes >= 3 ? hasPepsi : true) && // 3박스 이상이면 펩시 필수
-    (serviceBoxesCount > 0 ? !!serviceItem : true) &&
-    formData.business_name && formData.phone && formData.address;
+	const isValidOrder = totalPaidBoxes > 0 &&
+	  (totalPaidBoxes >= 3 ? hasPepsi : true) && // 3박스 이상이면 펩시 필수
+	  (serviceBoxesCount > 0 ? !!serviceItem : true) &&
+	  formData.business_name && formData.businessNumber && formData.phone && formData.address;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +284,37 @@ export const Order: React.FC = () => {
     setLoading(true);
 
     try {
+	      // 0. Determine if this order should trigger automatic apron request
+	      let shouldCreateApron = false;
+	      try {
+	        const { count: existingOrderCount, error: orderCountError } = await supabase
+	          .from('orders')
+	          .select('*', { count: 'exact', head: true })
+	          .eq('user_id', user.id);
+
+	        if (orderCountError) {
+	          console.error('Failed to check existing orders for apron logic', orderCountError);
+	        } else {
+	          const isFirstOrder = (existingOrderCount ?? 0) === 0;
+
+	          const { data: existingApron, error: apronError } = await supabase
+	            .from('apron_requests')
+	            .select('id')
+	            .eq('user_id', user.id)
+	            .limit(1)
+	            .maybeSingle();
+
+	          if (apronError) {
+	            console.error('Failed to check existing apron requests', apronError);
+	          }
+
+	          const hasExistingApron = !!existingApron;
+	          shouldCreateApron = isFirstOrder && !hasExistingApron;
+	        }
+	      } catch (logicError) {
+	        console.error('Apron auto-application logic failed', logicError);
+	      }
+
       // 1. Prepare Items
       const orderItems: OrderItem[] = Object.entries(cart).map(([pid, qty]) => {
         const quantity = qty as number;
@@ -201,21 +338,35 @@ export const Order: React.FC = () => {
         });
       }
 
-      // 2. Real DB Insert
-      // Update User info first (business_name, phone)
-      if (user.business_name !== formData.business_name || user.phone !== formData.phone) {
-        await supabase.from('users').update({
-          business_name: formData.business_name,
-          phone: formData.phone
-        }).eq('id', user.id);
-      }
+	  // 2. Real DB Insert
+	  // Update User info first (business_name, business_number, phone)
+	  const currentBizNumberRaw = supportsBizNumber
+	    ? ((((user as any).business_number as string | null) || '').replace(/\D/g, ''))
+	    : '';
+	  const newBizNumberRaw = formData.businessNumber.replace(/\D/g, '');
+
+	  const shouldUpdateUser =
+	    user.business_name !== formData.business_name ||
+	    user.phone !== formData.phone ||
+	    (supportsBizNumber && currentBizNumberRaw !== newBizNumberRaw);
+
+	  if (shouldUpdateUser) {
+	    const updatePayload: any = {
+	      business_name: formData.business_name,
+	      phone: formData.phone,
+	    };
+	    if (supportsBizNumber) {
+	      updatePayload.business_number = newBizNumberRaw;
+	    }
+	    await supabase.from('users').update(updatePayload).eq('id', user.id);
+	  }
 
       // Insert Order
       const fullAddress = formData.detailAddress
         ? `${formData.address} ${formData.detailAddress}`
         : formData.address;
 
-      const { error } = await supabase.from('orders').insert({
+	      const { error } = await supabase.from('orders').insert({
         user_id: user.id,
         items: orderItems,
         service_items: serviceItemsList,
@@ -226,8 +377,23 @@ export const Order: React.FC = () => {
       });
 
       if (error) throw error;
-
-      alert('주문이 성공적으로 접수되었습니다!\n관리자 확인 후 연락드립니다.');
+	      
+	      // 3. Auto-create apron request on first order (once per business)
+	      if (shouldCreateApron) {
+	        const { error: apronInsertError } = await supabase.from('apron_requests').insert({
+	          user_id: user.id,
+	          quantity: 5,
+	          status: 'pending'
+	        });
+	        if (apronInsertError) {
+	          console.error('앞치마 자동 신청 실패:', apronInsertError);
+	        }
+	      }
+	      
+	      alert(shouldCreateApron
+	        ? '주문이 성공적으로 접수되었습니다!\n앞치마 5장 자동 신청이 완료되었습니다. (관리자 확인 후 발송)'
+	        : '주문이 성공적으로 접수되었습니다!\n관리자 확인 후 연락드립니다.'
+	      );
       setCart({});
       setServiceItem('');
       navigate('/');
@@ -251,7 +417,8 @@ export const Order: React.FC = () => {
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm mb-4">
             <h4 className="font-bold text-blue-800 mb-1"><i className="fa-solid fa-circle-info mr-2"></i>3+1 행사 안내</h4>
             <p>총 3박스 주문 시마다 서비스 음료 1박스를 드립니다.</p>
-            <p className="text-red-500 font-semibold">* 단, 주문 목록에 펩시(콜라/제로) 제품이 1박스 이상 포함되어야 합니다.</p>
+	            <p className="text-red-500 font-semibold">* 단, 주문 목록에 펩시(콜라/제로) 제품이 1박스 이상 포함되어야 합니다.</p>
+	            <p className="text-xs text-gray-600 mt-2">* 1개 사업자당 월 최대 10박스까지 무료 혜택이 적용됩니다.</p>
           </div>
 
           {/* Category Tabs */}
@@ -411,19 +578,16 @@ export const Order: React.FC = () => {
               )}
             </div>
 
-            {serviceBoxesCount > 0 && serviceItem && (
-              <div className="mb-6 bg-green-50 p-3 rounded border border-green-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold text-green-800">🎁 서비스 상품 (자동선택)</div>
-                    <div className="text-xs text-green-600 mt-1">
-                      {products.find(p => p.id === serviceItem)?.name} × {serviceBoxesCount}
-                    </div>
-                  </div>
-                  <div className="text-green-700 font-bold">무료</div>
-                </div>
-              </div>
-            )}
+	            {serviceBoxesCount > 0 && serviceItem && (
+	              <div className="mb-6 bg-green-50 p-3 rounded border border-green-200">
+	                <div>
+	                  <div className="text-sm font-bold text-green-800">🎁 서비스 상품 (자동선택)</div>
+	                  <div className="text-xs text-green-600 mt-1">
+	                    {products.find(p => p.id === serviceItem)?.name} × {serviceBoxesCount}
+	                  </div>
+	                </div>
+	              </div>
+	            )}
 
             <div className="mb-6 pt-4 border-t">
               <div className="flex justify-between items-end mb-2">
@@ -436,9 +600,22 @@ export const Order: React.FC = () => {
                   <div className="text-sm text-green-600 font-bold">🎉 {discountRate}% 할인 적용!</div>
                 </div>
               )}
-            </div>
+	            </div>
 
-            {/* User Info Form */}
+	            {/* Apron auto-application info */}
+	            <div className="mb-4 bg-orange-50 p-3 rounded border border-orange-200 text-xs">
+	              <div className="font-bold text-orange-800 mb-1">{'\uc55e\uce58\ub9c8 \ud61c\ud0dd'}</div>
+	              <p className="text-orange-700">
+	                {'1\uac1c \uc0ac\uc5c5\uc790 \uae30\uc900, \ucd5c\ucd08 \uc8fc\ubb38 1\ud68c\uc5d0 \ud55c\ud574 \uc55e\uce58\ub9c8 5\uc7a5\uc774 \uc790\ub3d9 \uc2e0\uccad\ub429\ub2c8\ub2e4.'}
+	              </p>
+	              {willAutoApron && (
+	                <p className="mt-1 font-semibold">
+	                  {'\u279c \uc774\ubc88 \uc8fc\ubb38\uc740 \ucd5c\ucd08 \uc8fc\ubb38\uc73c\ub85c \ud655\uc778\ub418\uc5b4, \uc55e\uce58\ub9c8 5\uc7a5\uc774 \uc790\ub3d9 \uc2e0\uccad\ub429\ub2c8\ub2e4.'}
+	                </p>
+	              )}
+	            </div>
+
+	            {/* User Info Form */}
             <div className="space-y-3 mb-6">
               <input
                 type="text"
@@ -448,13 +625,21 @@ export const Order: React.FC = () => {
                 value={formData.business_name}
                 onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
               />
+	              <input
+	                type="text"
+	                placeholder="사업자등록번호 (예: 123-45-67890)"
+	                required
+	                className="w-full p-2 border rounded text-sm"
+	                value={formData.businessNumber}
+	                onChange={handleBusinessNumberChange}
+	              />
               <input
                 type="text"
                 placeholder="연락처"
                 required
                 className="w-full p-2 border rounded text-sm"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+	                onChange={handlePhoneChange}
               />
 
               {/* 주소 검색 */}

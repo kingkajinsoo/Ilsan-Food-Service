@@ -32,13 +32,14 @@ export const Landing: React.FC = () => {
           />
         </div>
         <div className="relative max-w-7xl mx-auto py-24 px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mb-4">
-            고양시 일산서구<br className="sm:hidden" /> 외식업중앙회
+          <h1 className="font-extrabold tracking-tight mb-4">
+            <div className="text-5xl sm:text-6xl lg:text-7xl">한국외식업중앙회</div>
+            <div className="text-2xl sm:text-3xl lg:text-4xl mt-2">경기도북부지회 고양시일산서구지부</div>
           </h1>
-          <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto">
-            회원님들을 위한 특별한 혜택! <br />
-            업소용 음료 주문부터 앞치마 무료 신청까지, 간편하게 이용하세요.
-          </p>
+	          <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto">
+	            회원님들을 위한 특별한 혜택! <br />
+	            업소용 음료 주문부터 직원용 앞치마 무상 지급 혜택까지, 간편하게 이용하세요.
+	          </p>
           <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
             <button
               onClick={handleLogin}
@@ -49,9 +50,10 @@ export const Landing: React.FC = () => {
               {loading ? '연결 중...' : '카카오로 시작하기'}
             </button>
           </div>
-          <p className="mt-4 text-sm text-blue-200">
-            * 카카오 계정으로 간편하게 가입하고 로그인할 수 있습니다.
-          </p>
+          <div className="mt-4 text-sm">
+            <p className="text-blue-200">* 카카오 계정으로 간편하게 가입하고 로그인할 수 있습니다.</p>
+            <p className="text-red-400 font-semibold">* 회원사가 아닐 경우 주문이 불가능 합니다.</p>
+          </div>
         </div>
       </div>
 
@@ -65,10 +67,12 @@ export const Landing: React.FC = () => {
               <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl mb-6 shadow-md">
                 <i className="fa-solid fa-boxes-stacked"></i>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">3+1 특별 행사</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">롯데칠성음료 업소용 제품 특별 행사</h3>
+              <p className="text-gray-600 mb-4">
+                <span className="font-semibold text-blue-700">롯데칠성음료 고양지점과 함께하는 특별 혜택!</span><br />
                 업소용 음료 3박스 주문 시 <span className="text-blue-600 font-bold">1박스 무료 증정!</span><br />
-                (단, 주문 목록에 펩시 제품 1박스 이상 포함 필수)
+                (단, 주문 목록에 펩시 제품 1박스 이상 포함 필수)<br />
+                <span className="text-xs text-gray-500">* 1개 사업자당 월 최대 10박스까지 무료 혜택이 적용됩니다.</span>
               </p>
               <ul className="text-sm text-gray-500 space-y-2 text-left bg-white p-4 rounded-lg w-full max-w-xs">
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>펩시 콜라 / 펩시 제로</li>
@@ -79,13 +83,17 @@ export const Landing: React.FC = () => {
 
             {/* Apron Card */}
             <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-8 shadow-sm border border-orange-100 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-white text-2xl mb-6 shadow-md">
-                <i className="fa-solid fa-shirt"></i>
+              <div className="mb-4">
+                <img
+                  src="/앞치마 이미지.jpg"
+                  alt="앞치마"
+                  className="w-48 h-48 object-contain rounded-lg"
+                />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">앞치마 무료 신청</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">직원용 앞치마 지급</h3>
               <p className="text-gray-600 mb-6">
-                신규 가입처 및 기존 회원님들을 위한<br />
-                위생 앞치마를 무료로 지원해 드립니다.
+                1개 사업자 기준, <span className="font-semibold">최초 주문 1회에 한해</span><br />
+                앞치마 5장을 자동으로 신청해 드립니다.
               </p>
               <div className="mt-auto">
                 <p className="text-sm text-orange-600 font-semibold bg-orange-100 px-4 py-2 rounded-full">
