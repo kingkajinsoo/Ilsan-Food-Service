@@ -13,8 +13,10 @@ export interface Product {
   name: string;
   price: number;
   category: string;
-  image: string;
-  isPepsiFamily: boolean; // Vital for the 3+1 logic
+  image: string | null;
+  is_pepsi_family: boolean; // Vital for the 3+1 logic
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface OrderItem {

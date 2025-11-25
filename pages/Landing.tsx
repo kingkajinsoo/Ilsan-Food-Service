@@ -7,10 +7,9 @@ export const Landing: React.FC = () => {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({ 
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
-          // Redirect to current origin. The App component will handle routing based on session.
           redirectTo: window.location.origin
         }
       });
@@ -26,9 +25,9 @@ export const Landing: React.FC = () => {
       {/* Hero Section */}
       <div className="relative bg-blue-700 text-white overflow-hidden">
         <div className="absolute inset-0">
-          <img 
-            src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" 
-            alt="Restaurant Background" 
+          <img
+            src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+            alt="Restaurant Background"
             className="w-full h-full object-cover opacity-20"
           />
         </div>
@@ -60,7 +59,7 @@ export const Landing: React.FC = () => {
       <div className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-            
+
             {/* Promo Card */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 shadow-sm border border-blue-100 flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl mb-6 shadow-md">

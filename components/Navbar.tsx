@@ -14,11 +14,10 @@ const MobileNavLink: React.FC<MobileNavLinkProps> = ({ to, children, currentPath
   <Link
     to={to}
     onClick={onClose}
-    className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-      currentPath === to
-        ? 'bg-blue-100 text-blue-700'
-        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-    }`}
+    className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${currentPath === to
+      ? 'bg-blue-100 text-blue-700'
+      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+      }`}
   >
     {children}
   </Link>
@@ -32,17 +31,21 @@ export const Navbar: React.FC = () => {
 
   useEffect(() => {
     checkUser();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         await ensureUserProfile(session);
+        // Redirect to order page after successful login
+        if (event === 'SIGNED_IN' && location.pathname === '/') {
+          navigate('/order');
+        }
       } else {
         setUser(null);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [location]);
+  }, [location, navigate]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -74,11 +77,11 @@ export const Navbar: React.FC = () => {
         };
 
         const { error: insertError } = await supabase.from('users').insert(newProfile);
-        
+
         if (!insertError) {
-           setUser({ ...newProfile, created_at: new Date().toISOString() } as UserProfile);
+          setUser({ ...newProfile, created_at: new Date().toISOString() } as UserProfile);
         } else {
-           console.error("Error creating user profile:", insertError);
+          console.error("Error creating user profile:", insertError);
         }
       }
     } catch (e) {
@@ -107,7 +110,7 @@ export const Navbar: React.FC = () => {
               </span>
             </Link>
           </div>
-          
+
           <div className="hidden md:flex md:items-center md:space-x-4">
             {user ? (
               <>
@@ -128,11 +131,11 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={async () => {
-                  await supabase.auth.signInWithOAuth({ 
+                  await supabase.auth.signInWithOAuth({
                     provider: 'kakao',
                     options: { redirectTo: window.location.origin }
                   });
-                }} 
+                }}
                 className="bg-yellow-400 text-black px-4 py-2 rounded-md text-sm font-bold hover:bg-yellow-500 shadow-sm"
               >
                 <i className="fa-solid fa-comment mr-2"></i>카카오 로그인
@@ -181,7 +184,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={async () => {
-                   await supabase.auth.signInWithOAuth({ 
+                  await supabase.auth.signInWithOAuth({
                     provider: 'kakao',
                     options: { redirectTo: window.location.origin }
                   });
