@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 export const Landing: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [showApronModal, setShowApronModal] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -83,12 +84,15 @@ export const Landing: React.FC = () => {
 
             {/* Apron Card */}
             <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-8 shadow-sm border border-orange-100 flex flex-col items-center text-center">
-              <div className="mb-4">
+              <div className="mb-4 cursor-pointer" onClick={() => setShowApronModal(true)}>
                 <img
                   src="/앞치마 이미지.jpg"
                   alt="앞치마"
-                  className="w-48 h-48 object-contain rounded-lg"
+                  className="w-48 h-48 object-contain rounded-lg hover:scale-105 transition-transform"
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  <i className="fa-solid fa-magnifying-glass-plus mr-1"></i>클릭하여 크게 보기
+                </p>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">직원용 앞치마 지급</h3>
               <p className="text-gray-600 mb-6">
@@ -105,6 +109,29 @@ export const Landing: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Apron Image Modal */}
+      {showApronModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowApronModal(false)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <button
+              onClick={() => setShowApronModal(false)}
+              className="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 transition"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+            <img
+              src="/앞치마 이미지.jpg"
+              alt="앞치마 상세 이미지"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
