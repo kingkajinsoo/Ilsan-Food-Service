@@ -457,13 +457,15 @@ export const Admin: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">가입일</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사업자번호</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                    {users.length === 0 ? (
-                     <tr><td colSpan={4} className="px-6 py-4 text-center text-gray-500">회원 내역이 없습니다.</td></tr>
+                     <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">회원 내역이 없습니다.</td></tr>
                   ) : (
                   users.map(u => (
                     <tr key={u.id}>
@@ -473,11 +475,17 @@ export const Admin: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {u.name}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {u.email || '-'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {u.business_name || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {u.phone || '-'}
+                        {u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}
                       </td>
                     </tr>
                   )))}
