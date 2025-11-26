@@ -418,7 +418,7 @@ export const Order: React.FC = () => {
             <h4 className="font-bold text-blue-800 mb-1"><i className="fa-solid fa-circle-info mr-2"></i>3+1 행사 안내</h4>
             <p>총 3박스 주문 시마다 서비스 음료 1박스를 드립니다.</p>
 	            <p className="text-red-500 font-semibold">* 단, 주문 목록에 펩시(콜라/제로) 제품이 1박스 이상 포함되어야 합니다.</p>
-	            <p className="text-xs text-gray-600 mt-2">* 1개 사업자당 월 최대 10박스까지 무료 혜택이 적용됩니다.</p>
+	            <p className="text-xs text-gray-600 mt-2">* 신규 1개 사업자당 월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</p>
           </div>
 
           {/* Category Tabs */}
