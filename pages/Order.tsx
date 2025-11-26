@@ -373,6 +373,8 @@ export const Order: React.FC = () => {
         total_boxes: totalPaidBoxes + serviceBoxesCount,
         total_amount: totalAmount,
         delivery_address: fullAddress,
+        phone: formData.phone,
+        business_number: formData.businessNumber,
         status: 'pending'
       });
 
