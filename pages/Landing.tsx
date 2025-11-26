@@ -11,7 +11,12 @@ export const Landing: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          scopes: 'account_email profile_nickname'
         }
       });
       if (error) throw error;

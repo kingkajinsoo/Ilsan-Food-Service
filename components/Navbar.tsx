@@ -29,8 +29,17 @@ export const Navbar: React.FC = () => {
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [privacyChecked, setPrivacyChecked] = useState(false);
+  const [realName, setRealName] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 이름 유효성 검사 함수
+  const isInvalidName = (name: string | null) => {
+    if (!name || name.length < 2) return true;
+    if (/^[?ㅇㅁㄱㄴㄷㄹㅅㅈㅊㅋㅌㅍㅎ]+$/.test(name)) return true;
+    if (name === '회원' || name === 'unknown' || name === 'user') return true;
+    return false;
+  };
 
   useEffect(() => {
     checkUser();
@@ -109,23 +118,37 @@ export const Navbar: React.FC = () => {
       return;
     }
 
+    // 이름이 이상한 경우 실명 입력 확인
+    if (isInvalidName(user.name) && !realName.trim()) {
+      alert('실명을 입력해주세요.');
+      return;
+    }
+
     const now = new Date().toISOString();
+    const updateData: any = {
+      terms_agreed_at: now,
+      privacy_agreed_at: now,
+    };
+
+    // 이름이 이상한 경우 실명으로 업데이트
+    if (isInvalidName(user.name) && realName.trim()) {
+      updateData.name = realName.trim();
+    }
+
     const { error } = await supabase
       .from('users')
-      .update({
-        terms_agreed_at: now,
-        privacy_agreed_at: now,
-      })
+      .update(updateData)
       .eq('id', user.id);
 
     if (error) {
       console.error('Error updating agreement:', error);
       alert('동의 처리 중 오류가 발생했습니다.');
     } else {
-      setUser({ ...user, terms_agreed_at: now, privacy_agreed_at: now });
+      setUser({ ...user, ...updateData });
       setShowAgreementModal(false);
       setTermsChecked(false);
       setPrivacyChecked(false);
+      setRealName('');
     }
   };
 
@@ -167,7 +190,14 @@ export const Navbar: React.FC = () => {
                 onClick={async () => {
                   await supabase.auth.signInWithOAuth({
                     provider: 'kakao',
-                    options: { redirectTo: window.location.origin }
+                    options: {
+                      redirectTo: window.location.origin,
+                      queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                      },
+                      scopes: 'account_email profile_nickname'
+                    }
                   });
                 }}
                 className="bg-yellow-400 text-black px-4 py-2 rounded-md text-sm font-bold hover:bg-yellow-500 shadow-sm"
@@ -220,7 +250,14 @@ export const Navbar: React.FC = () => {
                 onClick={async () => {
                   await supabase.auth.signInWithOAuth({
                     provider: 'kakao',
-                    options: { redirectTo: window.location.origin }
+                    options: {
+                      redirectTo: window.location.origin,
+                      queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                      },
+                      scopes: 'account_email profile_nickname'
+                    }
                   });
                 }}
                 className="w-full text-left block px-3 py-2 rounded-md text-base font-medium bg-yellow-400 text-black"
@@ -241,6 +278,31 @@ export const Navbar: React.FC = () => {
               <p className="text-sm text-gray-600 mb-6">
                 서비스 이용을 위해 아래 약관에 동의해주세요.
               </p>
+
+              {/* 이름이 이상한 경우만 실명 입력 필드 표시 */}
+              {user && isInvalidName(user.name) && (
+                <div className="mb-6 p-4 border-2 border-yellow-400 rounded-lg bg-yellow-50">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm font-semibold text-yellow-800">
+                      카카오 계정 이름이 확인되지 않습니다
+                    </p>
+                  </div>
+                  <p className="text-xs text-yellow-700 mb-3">
+                    서비스 이용을 위해 실명을 입력해주세요.
+                  </p>
+                  <input
+                    type="text"
+                    value={realName}
+                    onChange={(e) => setRealName(e.target.value)}
+                    placeholder="실명을 입력해주세요 (예: 홍길동)"
+                    className="w-full px-4 py-2 border border-yellow-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+              )}
 
               {/* Terms Checkbox */}
               <div className="mb-4 p-4 border rounded-lg">
@@ -307,6 +369,7 @@ export const Navbar: React.FC = () => {
                     setShowAgreementModal(false);
                     setTermsChecked(false);
                     setPrivacyChecked(false);
+                    setRealName('');
                   }}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
                 >
