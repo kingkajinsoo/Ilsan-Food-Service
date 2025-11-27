@@ -484,8 +484,8 @@ export const Order: React.FC = () => {
               onClick={() => setActiveCategory('ALL')}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'ALL'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
               }`}
             >
               전체
@@ -494,8 +494,8 @@ export const Order: React.FC = () => {
               onClick={() => setActiveCategory('CAN')}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'CAN'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
               }`}
             >
               🥫 캔
@@ -504,8 +504,8 @@ export const Order: React.FC = () => {
               onClick={() => setActiveCategory('BOTTLE')}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'BOTTLE'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
               }`}
             >
               🍾 페트병
@@ -514,8 +514,8 @@ export const Order: React.FC = () => {
               onClick={() => setActiveCategory('WATER')}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'WATER'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
               }`}
             >
               💧 생수
