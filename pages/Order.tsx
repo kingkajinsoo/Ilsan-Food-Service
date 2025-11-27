@@ -500,9 +500,14 @@ export const Order: React.FC = () => {
                           </span>
                         ) : (
                           // 조건 미충족 시 궁금증 유발 문구
-                          <span className="text-blue-600 font-bold text-sm">
-                            🎁 3+1 혜택가 확인하기
-                          </span>
+                          <div>
+                            <span className="text-blue-600 font-bold text-sm">
+                              🎁 3+1 혜택가 확인하기
+                            </span>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              └ 얼마나 할인될까? 담아서 확인!
+                            </p>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center space-x-2 mt-1">
