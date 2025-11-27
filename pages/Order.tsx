@@ -512,22 +512,12 @@ export const Order: React.FC = () => {
                       </div>
                       {product.category !== 'WATER' && (
                         <div className="mt-1">
-                          {totalPaidBoxes >= 3 && hasPepsi ? (
-                            // 3박스 이상 + 펩시 포함 시 실제 할인가 표시
-                            <span className="text-red-600 font-bold text-base">
-                              ✅ 박스당 {perBoxPrice.toLocaleString()}원
-                            </span>
-                          ) : (
-                            // 조건 미충족 시 궁금증 유발 문구
-                            <div>
-                              <span className="text-blue-600 font-bold text-sm">
-                                🎁 3박스(교차가능) 담으면 +1 증정!
-                              </span>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                └ 담아서 내 혜택가 확인하기
-                              </p>
-                            </div>
-                          )}
+                          <span className="text-blue-600 font-bold text-sm">
+                            🎁 3박스(교차가능) 담으면 +1 증정!
+                          </span>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            └ 담아서 내 혜택가 확인하기
+                          </p>
                         </div>
                       )}
                       <div className="flex items-center space-x-2 mt-1">
