@@ -531,8 +531,8 @@ export const Order: React.FC = () => {
               products
                 .filter(product => activeCategory === 'ALL' || product.category === activeCategory)
                 .map(product => (
-                <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
+                <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border">
+                  <div className="flex items-start space-x-3">
                     {product.image ? (
                       <img src={product.image} alt={product.name} className="w-[77px] h-[77px] object-cover rounded bg-gray-100 flex-shrink-0" />
                     ) : (
@@ -540,52 +540,58 @@ export const Order: React.FC = () => {
                         No Image
                       </div>
                     )}
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-gray-900 text-sm">{product.name}</h3>
-                      {/* 2열 레이아웃: 정가 / 혜택 문구 */}
-                      <div className="mt-1">
-                        {product.category === 'WATER' ? (
-                          // 생수는 정가만 표시 (3+1 미적용)
-                          <span className="text-gray-900 font-bold text-sm">{product.price.toLocaleString()}원</span>
-                        ) : (
-                          <>
-                            <span className="text-gray-500 text-sm">정가 </span>
-                            <span className="text-red-400 line-through decoration-red-500 decoration-2 text-sm font-medium">{product.price.toLocaleString()}원</span>
-                          </>
-                        )}
-                      </div>
-                      {product.category !== 'WATER' && (
-                        <div className="mt-1">
-                          <span className="text-blue-600 font-bold text-sm">
-                            🎁 3박스(교차가능) 담으면 +1 증정!
-                          </span>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            └ 담아서 내 혜택가 확인하기
-                          </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+                        {/* 상품 정보 */}
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 text-sm">{product.name}</h3>
+                          {/* 2열 레이아웃: 정가 / 혜택 문구 */}
+                          <div className="mt-1">
+                            {product.category === 'WATER' ? (
+                              // 생수는 정가만 표시 (3+1 미적용)
+                              <span className="text-gray-900 font-bold text-sm">{product.price.toLocaleString()}원</span>
+                            ) : (
+                              <>
+                                <span className="text-gray-500 text-sm">정가 </span>
+                                <span className="text-red-400 line-through decoration-red-500 decoration-2 text-sm font-medium">{product.price.toLocaleString()}원</span>
+                              </>
+                            )}
+                          </div>
+                          {product.category !== 'WATER' && (
+                            <div className="mt-1">
+                              <span className="text-blue-600 font-bold text-sm">
+                                🎁 3박스(교차가능) 담으면 +1 증정!
+                              </span>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                └ 담아서 내 혜택가 확인하기
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex items-center space-x-2 mt-1">
+                            {product.category === 'WATER' ? (
+                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">물량지원 대상 아님</span>
+                            ) : (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
+                            )}
+                            {product.is_pepsi_family && (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">필수포함</span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center space-x-2 mt-1">
-                        {product.category === 'WATER' ? (
-                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">물량지원 대상 아님</span>
-                        ) : (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
-                        )}
-                        {product.is_pepsi_family && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">필수포함</span>
-                        )}
+                        {/* 수량 조절 버튼 - 모바일: 아래, 태블릿/PC: 오른쪽 */}
+                        <div className="flex items-center space-x-3 bg-gray-50 p-1 rounded-lg mt-3 md:mt-0 md:ml-3 self-start">
+                          <button
+                            onClick={() => updateQuantity(product.id, -1)}
+                            className="w-8 h-8 flex items-center justify-center bg-white rounded shadow text-gray-600 hover:text-red-500 font-bold"
+                          >-</button>
+                          <span className="w-8 text-center font-bold">{cart[product.id] || 0}</span>
+                          <button
+                            onClick={() => updateQuantity(product.id, 1)}
+                            className="w-8 h-8 flex items-center justify-center bg-blue-600 rounded shadow text-white hover:bg-blue-700 font-bold"
+                          >+</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3 bg-gray-50 p-1 rounded-lg">
-                    <button
-                      onClick={() => updateQuantity(product.id, -1)}
-                      className="w-8 h-8 flex items-center justify-center bg-white rounded shadow text-gray-600 hover:text-red-500 font-bold"
-                    >-</button>
-                    <span className="w-8 text-center font-bold">{cart[product.id] || 0}</span>
-                    <button
-                      onClick={() => updateQuantity(product.id, 1)}
-                      className="w-8 h-8 flex items-center justify-center bg-blue-600 rounded shadow text-white hover:bg-blue-700 font-bold"
-                    >+</button>
                   </div>
                 </div>
               ))
