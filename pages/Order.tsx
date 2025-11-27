@@ -479,9 +479,9 @@ export const Order: React.FC = () => {
                 <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     {product.image ? (
-                      <img src={product.image} alt={product.name} className="w-16 h-16 object-cover rounded bg-gray-100 flex-shrink-0" />
+                      <img src={product.image} alt={product.name} className="w-[70px] h-[70px] object-cover rounded bg-gray-100 flex-shrink-0" />
                     ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                      <div className="w-[70px] h-[70px] bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                         No Image
                       </div>
                     )}
