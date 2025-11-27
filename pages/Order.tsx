@@ -432,6 +432,7 @@ export const Order: React.FC = () => {
             <p>총 3박스 주문 시마다 서비스 음료 1박스를 드립니다.</p>
 	            <p className="text-red-500 font-semibold">* 단, 주문 목록에 펩시(콜라/제로) 제품이 1박스 이상 포함되어야 합니다.</p>
 	            <p className="text-xs text-gray-600 mt-2">* 신규 1개 사업자당 월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</p>
+	            <p className="text-xs text-gray-500 mt-1">* 이 프로모션은 일정 기간에만 제공됩니다. (당 지부의 사정에 따라 조기 종료될 수 있습니다.)</p>
           </div>
 
           {/* Category Tabs */}
