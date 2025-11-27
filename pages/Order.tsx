@@ -672,7 +672,7 @@ export const Order: React.FC = () => {
               />
 	              <input
 	                type="text"
-	                placeholder="사업자등록번호 (예: 123-45-67890)"
+	                placeholder="사업자등록번호 (123-45-67890)"
 	                required
 	                className="w-full p-2 border rounded text-sm"
 	                value={formData.businessNumber}
