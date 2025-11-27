@@ -40,7 +40,7 @@ export const Landing: React.FC = () => {
         <div className="relative max-w-7xl mx-auto py-24 px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="font-extrabold tracking-tight mb-4">
             <div className="text-5xl sm:text-6xl lg:text-7xl">한국외식업중앙회</div>
-            <div className="text-2xl sm:text-3xl lg:text-4xl mt-2">경기도북부지회 고양시일산서구지부</div>
+            <div className="text-2xl sm:text-3xl lg:text-4xl mt-2">경기도북부지회 고양시일산구지부</div>
           </h1>
 	          <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto">
 	            회원님들을 위한 특별한 혜택! <br />

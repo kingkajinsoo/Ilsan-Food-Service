@@ -36,7 +36,7 @@ const App: React.FC = () => {
               이용약관
             </Link>
           </div>
-          <p>© 2025 한국외식업중앙회 경기도북부지회 고양시일산서구지부. All rights reserved.</p>
+          <p>© 2025 한국외식업중앙회 경기도북부지회 고양시일산구지부. All rights reserved.</p>
           <p className="mt-2 text-gray-400">문의: 031-906-1661 | anenmaketing25@gmail.com</p>
         </footer>
       </div>
