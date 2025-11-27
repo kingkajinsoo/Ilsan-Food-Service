@@ -13,13 +13,13 @@ UPDATE products SET name = '탐스쥬시오렌지 355ml×24캔' WHERE name LIKE 
 UPDATE products SET name = '탐스쥬시포도 355ml×24캔' WHERE name LIKE '%탐스%포도%';
 
 -- 3. 칠성사이다 제로 500펫 이미지 변경
-UPDATE products 
-SET image = '/사이다 제로 업소용.png' 
+UPDATE products
+SET image = 'https://shop-phinf.pstatic.net/20251117_15/1763346717719KFG6Q_JPEG/80353211539300711_517772847.jpg?type=m1000_pd'
 WHERE name LIKE '%칠성사이다%제로%500%';
 
 -- 4. 펩시 500펫 이미지 변경
-UPDATE products 
-SET image = '/펩시 업소용.png' 
+UPDATE products
+SET image = 'https://shop-phinf.pstatic.net/20250510_286/1746860998668pdM2J_JPEG/68178335665255156_1472784829.jpg?type=m1000_pd'
 WHERE name LIKE '%펩시%500%' AND name NOT LIKE '%제로%';
 
 -- 확인용 쿼리
