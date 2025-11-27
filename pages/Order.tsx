@@ -479,9 +479,9 @@ export const Order: React.FC = () => {
                 <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     {product.image ? (
-                      <img src={product.image} alt={product.name} className="w-[70px] h-[70px] object-cover rounded bg-gray-100 flex-shrink-0" />
+                      <img src={product.image} alt={product.name} className="w-[77px] h-[77px] object-cover rounded bg-gray-100 flex-shrink-0" />
                     ) : (
-                      <div className="w-[70px] h-[70px] bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                      <div className="w-[77px] h-[77px] bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                         No Image
                       </div>
                     )}
@@ -489,29 +489,40 @@ export const Order: React.FC = () => {
                       <h3 className="font-bold text-gray-900 text-sm">{product.name}</h3>
                       {/* 2열 레이아웃: 정가 / 혜택 문구 */}
                       <div className="mt-1">
-                        <span className="text-gray-500 text-sm">정가 </span>
-                        <span className="text-red-400 line-through decoration-red-500 decoration-2 text-sm font-medium">{product.price.toLocaleString()}원</span>
-                      </div>
-                      <div className="mt-1">
-                        {totalPaidBoxes >= 3 && hasPepsi ? (
-                          // 3박스 이상 + 펩시 포함 시 실제 할인가 표시
-                          <span className="text-red-600 font-bold text-base">
-                            ✅ 박스당 {perBoxPrice.toLocaleString()}원
-                          </span>
+                        {product.category === 'WATER' ? (
+                          // 생수는 정가만 표시 (3+1 미적용)
+                          <span className="text-gray-900 font-bold text-sm">{product.price.toLocaleString()}원</span>
                         ) : (
-                          // 조건 미충족 시 궁금증 유발 문구
-                          <div>
-                            <span className="text-blue-600 font-bold text-sm">
-                              🎁 3박스(교차가능) 주문 시 1박스 무료!
-                            </span>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              └ 담아서 내 혜택가 확인하기
-                            </p>
-                          </div>
+                          <>
+                            <span className="text-gray-500 text-sm">정가 </span>
+                            <span className="text-red-400 line-through decoration-red-500 decoration-2 text-sm font-medium">{product.price.toLocaleString()}원</span>
+                          </>
                         )}
                       </div>
+                      {product.category !== 'WATER' && (
+                        <div className="mt-1">
+                          {totalPaidBoxes >= 3 && hasPepsi ? (
+                            // 3박스 이상 + 펩시 포함 시 실제 할인가 표시
+                            <span className="text-red-600 font-bold text-base">
+                              ✅ 박스당 {perBoxPrice.toLocaleString()}원
+                            </span>
+                          ) : (
+                            // 조건 미충족 시 궁금증 유발 문구
+                            <div>
+                              <span className="text-blue-600 font-bold text-sm">
+                                🎁 3박스(교차가능) 담으면 +1 증정!
+                              </span>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                └ 담아서 내 혜택가 확인하기
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
+                        {product.category !== 'WATER' && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
+                        )}
                         {product.is_pepsi_family && (
                           <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">필수포함</span>
                         )}
