@@ -643,12 +643,17 @@ export const Order: React.FC = () => {
                 <span className="text-gray-600">총 결제금액</span>
                 <span className="text-2xl font-extrabold text-blue-700">{totalAmount.toLocaleString()}원</span>
               </div>
-              {serviceBoxesCount > 0 && (
-                <div className="text-right">
-                  <div className="text-xs text-gray-500">총 받는 박스: {totalPaidBoxes + serviceBoxesCount}박스</div>
-                  <div className="text-sm text-green-600 font-bold">🎉 {discountRate}% 할인 적용!</div>
-                </div>
-              )}
+              <div className="text-right">
+                {serviceBoxesCount > 0 && (
+                  <>
+                    <div className="text-xs text-gray-500">3+1 적용: {totalPaidBoxes + serviceBoxesCount}박스</div>
+                    <div className="text-sm text-green-600 font-bold">🎉 {discountRate}% 할인 적용!</div>
+                  </>
+                )}
+                {totalAllBoxes - totalPaidBoxes > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">+ 생수 {totalAllBoxes - totalPaidBoxes}박스 (별도)</div>
+                )}
+              </div>
 	            </div>
 
 	            {/* Apron auto-application info */}
