@@ -482,40 +482,40 @@ export const Order: React.FC = () => {
           <div className="flex space-x-2 mb-4 overflow-x-auto">
             <button
               onClick={() => setActiveCategory('ALL')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'ALL'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
               }`}
             >
               전체
             </button>
             <button
               onClick={() => setActiveCategory('CAN')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'CAN'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
               }`}
             >
               🥫 캔
             </button>
             <button
               onClick={() => setActiveCategory('BOTTLE')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'BOTTLE'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
               }`}
             >
               🍾 페트병
             </button>
             <button
               onClick={() => setActiveCategory('WATER')}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors border ${
                 activeCategory === 'WATER'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
               }`}
             >
               💧 생수
