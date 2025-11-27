@@ -217,7 +217,18 @@ export const Order: React.FC = () => {
   };
 
   // Logic Calculations
-  const totalPaidBoxes = (Object.values(cart) as number[]).reduce((a, b) => a + b, 0);
+  // 전체 박스 수량 (생수 포함)
+  const totalAllBoxes = (Object.values(cart) as number[]).reduce((a, b) => a + b, 0);
+
+  // 3+1 대상 박스 수량 (생수 제외)
+  const totalPaidBoxes = Object.entries(cart).reduce((acc, [pid, qty]) => {
+    const product = products.find(p => p.id === pid);
+    if (product && product.category !== 'WATER') {
+      return acc + (qty as number);
+    }
+    return acc;
+  }, 0);
+
   const totalAmount = Object.entries(cart).reduce((acc, [pid, qty]) => {
     const quantity = qty as number;
     const product = products.find(p => p.id === pid);
@@ -229,7 +240,7 @@ export const Order: React.FC = () => {
     return p?.is_pepsi_family;
   });
 
-  // 3+1 Logic
+  // 3+1 Logic (생수 제외된 totalPaidBoxes 기준)
 	  const rawServiceBoxes = (totalPaidBoxes >= 3 && hasPepsi)
 	    ? Math.floor(totalPaidBoxes / 3)
 	    : 0;
@@ -238,13 +249,13 @@ export const Order: React.FC = () => {
 
 	  const serviceBoxesCount = Math.min(rawServiceBoxes, remainingFreeBoxes);
 
-  // Auto-select cheapest product as service item
+  // Auto-select cheapest product as service item (생수 제외)
   useEffect(() => {
     if (serviceBoxesCount > 0 && Object.keys(cart).length > 0) {
-      // Find the cheapest product in cart
+      // Find the cheapest product in cart (생수 제외)
       const cartProducts = Object.keys(cart)
         .map(pid => products.find(p => p.id === pid))
-        .filter(p => p !== undefined) as Product[];
+        .filter(p => p !== undefined && p.category !== 'WATER') as Product[];
 
       if (cartProducts.length > 0) {
         const cheapest = cartProducts.reduce((min, p) => p.price < min.price ? p : min);
@@ -520,7 +531,9 @@ export const Order: React.FC = () => {
                         </div>
                       )}
                       <div className="flex items-center space-x-2 mt-1">
-                        {product.category !== 'WATER' && (
+                        {product.category === 'WATER' ? (
+                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">물량지원 대상 아님</span>
+                        ) : (
                           <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
                         )}
                         {product.is_pepsi_family && (
@@ -576,9 +589,15 @@ export const Order: React.FC = () => {
             {/* Logic Status */}
             <div className="mb-4 text-sm space-y-2 bg-gray-50 p-3 rounded">
               <div className="flex justify-between">
-                <span>총 주문 수량</span>
+                <span>3+1 대상 수량</span>
                 <span className="font-bold">{totalPaidBoxes} 박스</span>
               </div>
+              {totalAllBoxes - totalPaidBoxes > 0 && (
+                <div className="flex justify-between text-gray-500">
+                  <span>생수 (3+1 제외)</span>
+                  <span className="font-medium">{totalAllBoxes - totalPaidBoxes} 박스</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>펩시 포함 여부</span>
                 <span className={hasPepsi ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
