@@ -489,7 +489,8 @@ export const Order: React.FC = () => {
                       <h3 className="font-bold text-gray-900 text-sm">{product.name}</h3>
                       {/* 2열 레이아웃: 정가 / 혜택 문구 */}
                       <div className="mt-1">
-                        <span className="text-gray-400 line-through text-sm">{product.price.toLocaleString()}원</span>
+                        <span className="text-gray-500 text-sm">정가 </span>
+                        <span className="text-red-400 line-through decoration-red-500 decoration-2 text-sm font-medium">{product.price.toLocaleString()}원</span>
                       </div>
                       <div className="mt-1">
                         {totalPaidBoxes >= 3 && hasPepsi ? (
