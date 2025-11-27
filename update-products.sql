@@ -5,8 +5,11 @@ UPDATE products
 SET price = 3400, is_pepsi_family = false 
 WHERE name LIKE '%생수%' OR category = 'WATER';
 
--- 2. 텍스트 수정
-UPDATE products SET name = '잔치집 식혜 340ml×24캔' WHERE name LIKE '%잔치집%식혜%';
+-- 2. 텍스트 수정 + 잔치집 식혜 이미지 변경
+UPDATE products
+SET name = '잔치집 식혜 340ml×24캔',
+    image = 'https://shop-phinf.pstatic.net/20250203_282/173854631575463mFJ_JPEG/85511570544907356_359695488.jpg?type=m1000_pd'
+WHERE name LIKE '%잔치집%식혜%';
 UPDATE products SET name = '탐스제로파인애플 355ml×24캔' WHERE name LIKE '%탐스%파인애플%';
 UPDATE products SET name = '탐스제로사과 355ml×24캔' WHERE name LIKE '%탐스%사과%';
 UPDATE products SET name = '탐스쥬시오렌지 355ml×24캔' WHERE name LIKE '%탐스%오렌지%';
