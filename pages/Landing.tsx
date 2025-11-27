@@ -73,12 +73,18 @@ export const Landing: React.FC = () => {
               <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl mb-6 shadow-md">
                 <i className="fa-solid fa-boxes-stacked"></i>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">롯데칠성음료 업소용 제품 특별 행사</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                <span className="md:hidden">롯데칠성음료<br />업소용 제품 특별 행사</span>
+                <span className="hidden md:inline">롯데칠성음료 업소용 제품 특별 행사</span>
+              </h3>
               <p className="text-gray-600 mb-4">
                 <span className="font-semibold text-blue-700">롯데칠성음료 고양지점과 함께하는 특별 혜택!</span><br />
                 업소용 음료 3박스 주문 시 <span className="text-blue-600 font-bold">1박스 무료 증정!</span><br />
                 (단, 주문 목록에 펩시 제품 1박스 이상 포함 필수)<br />
-                <span className="text-xs text-gray-500">* 신규 1개 사업자당 월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</span>
+                <span className="text-xs text-gray-500 block mt-1">
+                  <span className="md:hidden">* 신규 1개 사업자당 월 최대 10박스까지<br />한정기간동안 무료 혜택이 적용됩니다.</span>
+                  <span className="hidden md:inline">* 신규 1개 사업자당 월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</span>
+                </span>
               </p>
               <ul className="text-sm text-gray-500 space-y-2 text-left bg-white p-4 rounded-lg w-full max-w-xs">
                 <li><i className="fa-solid fa-check text-green-500 mr-2"></i>펩시 콜라 / 펩시 제로</li>
