@@ -186,13 +186,34 @@ export const Order: React.FC = () => {
 	  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
 	};
 
-	const handleBusinessNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleBusinessNumberChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 	  const raw = e.target.value.replace(/\D/g, '');
 	  const formatted = formatBizNumber(raw);
 	  setFormData(prev => ({
 	    ...prev,
 	    businessNumber: formatted,
 	  }));
+
+	  // 사업자번호 10자리 완성되면 월별 사용량 조회
+	  if (raw.length === 10) {
+	    const yearMonth = new Date().toISOString().slice(0, 7); // "2025-01"
+	    try {
+	      const { data, error } = await supabase
+	        .from('monthly_service_usage')
+	        .select('used_boxes')
+	        .eq('business_number', formatted)
+	        .eq('year_month', yearMonth)
+	        .single();
+
+	      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+	        console.error('월별 사용량 조회 실패:', error);
+	      }
+	      setUsedServiceBoxesThisMonth(data?.used_boxes || 0);
+	    } catch (e) {
+	      console.error('월별 사용량 조회 실패:', e);
+	      setUsedServiceBoxesThisMonth(0);
+	    }
+	  }
 	};
 
 	const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -390,8 +411,29 @@ export const Order: React.FC = () => {
       });
 
       if (error) throw error;
-	      
-	      // 3. Auto-create apron request on first order (once per business)
+
+	      // 3. 월별 무료 박스 사용량 업데이트
+	      if (serviceBoxesCount > 0) {
+	        const yearMonth = new Date().toISOString().slice(0, 7);
+	        const newUsedBoxes = usedServiceBoxesThisMonth + serviceBoxesCount;
+
+	        const { error: usageError } = await supabase
+	          .from('monthly_service_usage')
+	          .upsert({
+	            business_number: formData.businessNumber,
+	            year_month: yearMonth,
+	            used_boxes: newUsedBoxes,
+	            updated_at: new Date().toISOString()
+	          }, {
+	            onConflict: 'business_number,year_month'
+	          });
+
+	        if (usageError) {
+	          console.error('월별 사용량 업데이트 실패:', usageError);
+	        }
+	      }
+
+	      // 4. Auto-create apron request on first order (once per business)
 	      if (shouldCreateApron) {
 	        const { error: apronInsertError } = await supabase.from('apron_requests').insert({
 	          user_id: user.id,
@@ -402,13 +444,14 @@ export const Order: React.FC = () => {
 	          console.error('앞치마 자동 신청 실패:', apronInsertError);
 	        }
 	      }
-	      
+
 	      alert(shouldCreateApron
 	        ? '주문이 성공적으로 접수되었습니다!\n앞치마 5장 자동 신청이 완료되었습니다. (관리자 확인 후 발송)'
 	        : '주문이 성공적으로 접수되었습니다!\n관리자 확인 후 연락드립니다.'
 	      );
       setCart({});
       setServiceItem('');
+      setUsedServiceBoxesThisMonth(prev => prev + serviceBoxesCount);
       navigate('/');
 
     } catch (err: any) {
@@ -600,6 +643,21 @@ export const Order: React.FC = () => {
                   <p className="text-red-600 text-xs font-bold">⚠️ 3박스 이상 주문 시 펩시 제품 1박스 이상 필수!</p>
                 </div>
               )}
+              {/* 월별 무료 박스 잔량 표시 */}
+              <div className="bg-purple-50 border border-purple-200 p-2 rounded mt-2">
+                <div className="flex justify-between text-purple-700 text-xs">
+                  <span>이달 무료 박스 사용</span>
+                  <span className="font-bold">{usedServiceBoxesThisMonth} / 10 박스</span>
+                </div>
+                <div className="flex justify-between text-purple-600 text-xs mt-1">
+                  <span>남은 무료 박스</span>
+                  <span className="font-bold">{Math.max(0, 10 - usedServiceBoxesThisMonth)} 박스</span>
+                </div>
+                {10 - usedServiceBoxesThisMonth <= 0 && (
+                  <p className="text-red-500 text-xs mt-1 font-bold">⚠️ 이달 무료 박스 소진!</p>
+                )}
+              </div>
+
               <div className="flex justify-between pt-2 border-t">
                 <span>서비스 수량</span>
                 <span className="font-bold text-blue-600">+{serviceBoxesCount} 박스</span>
@@ -647,18 +705,18 @@ export const Order: React.FC = () => {
               </div>
 	            </div>
 
-	            {/* Apron auto-application info */}
-	            <div className="mb-4 bg-orange-50 p-3 rounded border border-orange-200 text-xs">
-	              <div className="font-bold text-orange-800 mb-1">{'\uc55e\uce58\ub9c8 \ud61c\ud0dd'}</div>
-	              <p className="text-orange-700">
-	                {'1\uac1c \uc0ac\uc5c5\uc790 \uae30\uc900, \ucd5c\ucd08 \uc8fc\ubb38 1\ud68c\uc5d0 \ud55c\ud574 \uc55e\uce58\ub9c8 5\uc7a5\uc774 \uc790\ub3d9 \uc2e0\uccad\ub429\ub2c8\ub2e4.'}
-	              </p>
-	              {willAutoApron && (
-	                <p className="mt-1 font-semibold">
-	                  {'\u279c \uc774\ubc88 \uc8fc\ubb38\uc740 \ucd5c\ucd08 \uc8fc\ubb38\uc73c\ub85c \ud655\uc778\ub418\uc5b4, \uc55e\uce58\ub9c8 5\uc7a5\uc774 \uc790\ub3d9 \uc2e0\uccad\ub429\ub2c8\ub2e4.'}
+	            {/* Apron auto-application info - 최초 주문 시에만 표시 */}
+	            {willAutoApron && (
+	              <div className="mb-4 bg-orange-50 p-3 rounded border border-orange-200 text-xs">
+	                <div className="font-bold text-orange-800 mb-1">🎽 앞치마 혜택</div>
+	                <p className="text-orange-700">
+	                  1개 사업자 기준, 최초 주문 1회에 한해 앞치마 5장이 자동 신청됩니다.
 	                </p>
-	              )}
-	            </div>
+	                <p className="mt-1 font-semibold text-orange-800">
+	                  ➜ 이번 주문은 최초 주문으로 확인되어, 앞치마 5장이 자동 신청됩니다.
+	                </p>
+	              </div>
+	            )}
 
 	            {/* User Info Form */}
             <div className="space-y-3 mb-6">
@@ -722,7 +780,9 @@ export const Order: React.FC = () => {
               disabled={!isValidOrder || loading}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? '주문 중...' : serviceBoxesCount > 0 ? '🎁 3+1 프로모션으로 주문하기' : '주문하기'}
+              {loading ? '주문 중...' : serviceBoxesCount > 0 ? (
+                <>🎁 3+1 프로모션으로<br />주문하기</>
+              ) : '주문하기'}
             </button>
             {totalPaidBoxes >= 3 && !hasPepsi && (
               <p className="text-red-500 text-xs text-center mt-2 font-bold">
