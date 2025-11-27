@@ -163,7 +163,7 @@ export const Navbar: React.FC = () => {
               <img
                 src="/외식업 중앙회 가로.jpg"
                 alt="한국외식업중앙회 경기도북부지회 고양시일산서구지부"
-                className="h-16 object-contain"
+                className="h-10 md:h-16 max-w-[180px] md:max-w-none object-contain"
               />
             </Link>
           </div>
