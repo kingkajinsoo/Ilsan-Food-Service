@@ -477,24 +477,35 @@ export const Order: React.FC = () => {
                 .filter(product => activeCategory === 'ALL' || product.category === activeCategory)
                 .map(product => (
                 <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-3">
                     {product.image ? (
-                      <img src={product.image} alt={product.name} className="w-16 h-16 object-cover rounded bg-gray-100" />
+                      <img src={product.image} alt={product.name} className="w-16 h-16 object-cover rounded bg-gray-100 flex-shrink-0" />
                     ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
+                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
                         No Image
                       </div>
                     )}
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="font-bold text-gray-900 text-sm">{product.name}</h3>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-400 line-through text-sm">{product.price.toLocaleString()}원</span>
-                          <span className="text-red-600 font-bold text-lg">최대 {Math.round(product.price * 0.75).toLocaleString()}원</span>
-                        </div>
+                      {/* 2열 레이아웃: 정가 / 혜택 문구 */}
+                      <div className="mt-1">
+                        <span className="text-gray-400 line-through text-sm">{product.price.toLocaleString()}원</span>
+                      </div>
+                      <div className="mt-1">
+                        {totalPaidBoxes >= 3 && hasPepsi ? (
+                          // 3박스 이상 + 펩시 포함 시 실제 할인가 표시
+                          <span className="text-red-600 font-bold text-base">
+                            ✅ 박스당 {perBoxPrice.toLocaleString()}원
+                          </span>
+                        ) : (
+                          // 조건 미충족 시 궁금증 유발 문구
+                          <span className="text-blue-600 font-bold text-sm">
+                            🎁 3+1 혜택가 확인하기
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">최대 25% 할인</span>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">물량지원 대상</span>
                         {product.is_pepsi_family && (
                           <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">필수포함</span>
                         )}
