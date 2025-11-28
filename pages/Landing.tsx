@@ -82,8 +82,8 @@ export const Landing: React.FC = () => {
                 업소용 음료 3박스 주문 시 <span className="text-blue-600 font-bold">1박스 무료 증정!</span><br />
                 (단, 주문 목록에 펩시 제품 1박스 이상 포함 필수)<br />
                 <span className="text-xs text-gray-500 block mt-1">
-                  <span className="md:hidden">* 신규 1개 사업자당 월 최대 10박스까지<br />한정기간동안 무료 혜택이 적용됩니다.</span>
-                  <span className="hidden md:inline">* 신규 1개 사업자당 월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</span>
+                  <span className="md:hidden">* 신규(롯데칠성음료 고양지점 첫 거래) 1개 사업자당<br />월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</span>
+                  <span className="hidden md:inline">* 신규(롯데칠성음료 고양지점 첫 거래) 1개 사업자당<br />월 최대 10박스까지 한정기간동안 무료 혜택이 적용됩니다.</span>
                 </span>
               </p>
               <ul className="text-sm text-gray-500 space-y-2 text-left bg-white p-4 rounded-lg w-full max-w-xs">
