@@ -9,14 +9,32 @@ export const Landing: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setIsLoggedIn(!!session);
+      if (session) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', session.user.id)
+          .single();
+        setIsLoggedIn(!!user);
+      } else {
+        setIsLoggedIn(false);
+      }
     };
-    checkSession();
+    checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsLoggedIn(!!session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
+      if (session) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', session.user.id)
+          .single();
+        setIsLoggedIn(!!user);
+      } else {
+        setIsLoggedIn(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -71,11 +89,7 @@ export const Landing: React.FC = () => {
             <button
               onClick={handleButtonClick}
               disabled={loading}
-              className={`w-full flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-md md:py-4 md:text-xl md:px-10 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-wait ${
-                isLoggedIn
-                  ? 'text-white bg-blue-600 hover:bg-blue-700'
-                  : 'text-black bg-yellow-400 hover:bg-yellow-500'
-              }`}
+              className="w-full flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-md text-black bg-yellow-400 hover:bg-yellow-500 md:py-4 md:text-xl md:px-10 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-wait"
             >
               {isLoggedIn ? (
                 <>
