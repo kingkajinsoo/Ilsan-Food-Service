@@ -1,28 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export const Landing: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showApronModal, setShowApronModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'kakao',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          scopes: 'account_email profile_nickname'
-        }
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      alert('로그인 오류: ' + error.message);
-      setLoading(false);
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleButtonClick = async () => {
+    if (isLoggedIn) {
+      navigate('/order');
+    } else {
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'kakao',
+          options: {
+            redirectTo: window.location.origin,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+            scopes: 'account_email profile_nickname'
+          }
+        });
+        if (error) throw error;
+      } catch (error: any) {
+        alert('로그인 오류: ' + error.message);
+        setLoading(false);
+      }
     }
   };
 
@@ -48,18 +69,33 @@ export const Landing: React.FC = () => {
 	          </p>
           <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
             <button
-              onClick={handleLogin}
+              onClick={handleButtonClick}
               disabled={loading}
-              className="w-full flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-md text-black bg-yellow-400 hover:bg-yellow-500 md:py-4 md:text-xl md:px-10 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-wait"
+              className={`w-full flex items-center justify-center px-8 py-4 border border-transparent text-lg font-bold rounded-md md:py-4 md:text-xl md:px-10 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-wait ${
+                isLoggedIn
+                  ? 'text-white bg-blue-600 hover:bg-blue-700'
+                  : 'text-black bg-yellow-400 hover:bg-yellow-500'
+              }`}
             >
-              <i className="fa-solid fa-comment mr-3"></i>
-              {loading ? '연결 중...' : '카카오로 시작하기'}
+              {isLoggedIn ? (
+                <>
+                  <i className="fa-solid fa-cart-shopping mr-3"></i>
+                  주문하러 가기
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-comment mr-3"></i>
+                  {loading ? '연결 중...' : '카카오로 시작하기'}
+                </>
+              )}
             </button>
           </div>
-          <div className="mt-4 text-sm">
-            <p className="text-blue-200">* 카카오 계정으로 간편하게 가입하고 로그인할 수 있습니다.</p>
-            <p className="text-red-400 font-semibold">* 회원사가 아닐 경우 주문이 불가능 합니다.</p>
-          </div>
+          {!isLoggedIn && (
+            <div className="mt-4 text-sm">
+              <p className="text-blue-200">* 카카오 계정으로 간편하게 가입하고 로그인할 수 있습니다.</p>
+              <p className="text-red-400 font-semibold">* 회원사가 아닐 경우 주문이 불가능 합니다.</p>
+            </div>
+          )}
         </div>
       </div>
 
