@@ -389,7 +389,33 @@ export const Order: React.FC = () => {
     setLoading(true);
     setProcessingStatus('주문 처리를 시작합니다...');
 
-    // Safety Timeout Promise (모바일에서는 여유를 더 줌)
+    // 세션 유효성 재확인 (모바일 브라우저 호환성)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setLoading(false);
+        setModalState({
+          isOpen: true,
+          title: '로그인 필요',
+          message: '세션이 만료되었습니다. 다시 로그인해주세요.',
+          type: 'error',
+          onCloseAction: () => navigate('/')
+        });
+        return;
+      }
+    } catch (sessionError) {
+      console.error('Session check failed:', sessionError);
+      setLoading(false);
+      setModalState({
+        isOpen: true,
+        title: '연결 오류',
+        message: '서버 연결에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.',
+        type: 'error'
+      });
+      return;
+    }
+
+    // Safety Timeout Promise (모바일 환경에서는 타임아웃 시간 늘림)
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const timeoutMs = isMobile ? 30000 : 15000;
 
@@ -402,12 +428,38 @@ export const Order: React.FC = () => {
 
     // Business Logic Promise
     const orderPromise = (async () => {
-      // 0. (Removed explicit session check to prevent WebView timeouts)
-
-      // 1. Determine if this order should trigger automatic apron request
-      //    → 이미 초기 로딩 시 계산한 willAutoApron 값을 그대로 사용 (추가 DB 조회 없음)
+      // 1. 이 주문에서 자동 앞치마 신청을 수행해야 하는지 다시 DB로 검증
       setProcessingStatus('1/5. 앞치마 혜택 확인 중...');
-      const shouldCreateApron = willAutoApron;
+      let shouldCreateApron = false;
+      try {
+        const { data: existingOrders, error: orderCheckError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        if (orderCheckError) {
+          console.error('Failed to check existing orders', orderCheckError);
+        } else {
+          const isFirstOrder = !existingOrders || existingOrders.length === 0;
+
+          const { data: existingApron, error: apronError } = await supabase
+            .from('apron_requests')
+            .select('id')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (apronError) {
+            console.error('Failed to check existing apron requests', apronError);
+          }
+
+          const hasExistingApron = !!existingApron;
+          shouldCreateApron = isFirstOrder && !hasExistingApron;
+        }
+      } catch (logicError) {
+        console.error('Apron auto-application logic failed', logicError);
+      }
 
       // 1. Prepare Items
       const orderItems: OrderItem[] = Object.entries(cart).map(([pid, qty]) => {
@@ -416,8 +468,8 @@ export const Order: React.FC = () => {
         return {
           productId: pid,
           productName: p.name,
-          quantity: quantity,
-          price: p.price
+          quantity,
+          price: p.price,
         };
       });
 
@@ -429,14 +481,12 @@ export const Order: React.FC = () => {
             productId: p.id,
             productName: `[서비스] ${p.name}`,
             quantity: serviceBoxesCount,
-            price: 0
+            price: 0,
           });
         }
       }
 
-      // 2. Real DB Insert
-      // 2-1. 회원 정보 업데이트는 "주문" 자체보다는 중요도가 떨어지므로
-      //      주문 INSERT 와 병렬로 처리하고, 실패해도 주문은 계속 진행합니다.
+      // 2. 회원 정보 업데이트
       setProcessingStatus('2/5. 회원 정보 업데이트 중...');
       const currentBizNumberRaw = supportsBizNumber
         ? ((((user as any).business_number as string | null) || '').replace(/\D/g, ''))
@@ -448,8 +498,7 @@ export const Order: React.FC = () => {
         user.phone !== formData.phone ||
         (supportsBizNumber && currentBizNumberRaw !== newBizNumberRaw);
 
-      const userUpdatePromise = (async () => {
-        if (!shouldUpdateUser) return;
+      if (shouldUpdateUser) {
         const updatePayload: any = {
           business_name: formData.business_name,
           phone: formData.phone,
@@ -457,14 +506,17 @@ export const Order: React.FC = () => {
         if (supportsBizNumber) {
           updatePayload.business_number = newBizNumberRaw;
         }
-        const { error: userUpdateError } = await supabase.from('users').update(updatePayload).eq('id', user.id);
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update(updatePayload)
+          .eq('id', user.id);
         if (userUpdateError) {
           console.error('Failed to update user info:', userUpdateError);
-          // Don't throw, proceed to order
+          // 주문 자체는 계속 진행
         }
-      })();
+      }
 
-      // 2-2. 주문 INSERT 는 핵심이므로, 이 부분만은 반드시 성공/실패를 판단합니다.
+      // 3. 주문 INSERT (핵심)
       setProcessingStatus('3/5. 주문 정보 저장 중...');
       const fullAddress = formData.detailAddress
         ? `${formData.address} ${formData.detailAddress}`
@@ -479,63 +531,48 @@ export const Order: React.FC = () => {
         delivery_address: fullAddress,
         phone: formData.phone,
         business_number: formData.businessNumber,
-        status: 'pending'
+        status: 'pending',
       });
 
       if (error) throw error;
 
-      // 3. 월별 무료 박스 사용량 / 앞치마 자동 신청은 "부가 기능"이므로,
-      //    주문 저장이 끝난 뒤 백그라운드에서 처리하고, 실패해도 주문은 성공 처리합니다.
-      (async () => {
-        try {
-          await userUpdatePromise;
-        } catch (e) {
-          console.error('User update background task failed:', e);
-        }
+      // 4. 월별 무료 박스 사용량 업데이트
+      if (serviceBoxesCount > 0) {
+        setProcessingStatus('4/5. 프로모션 혜택 적용 중...');
+        const yearMonth = new Date().toISOString().slice(0, 7);
+        const newUsedBoxes = usedServiceBoxesThisMonth + serviceBoxesCount;
 
-        if (serviceBoxesCount > 0) {
-          try {
-            setProcessingStatus('4/5. 프로모션 혜택 적용 중...');
-            const yearMonth = new Date().toISOString().slice(0, 7);
-            const newUsedBoxes = usedServiceBoxesThisMonth + serviceBoxesCount;
-
-            const { error: usageError } = await supabase
-              .from('monthly_service_usage')
-              .upsert({
-                business_number: formData.businessNumber,
-                year_month: yearMonth,
-                used_boxes: newUsedBoxes,
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'business_number,year_month'
-              });
-
-            if (usageError) {
-              console.error('월별 사용량 업데이트 실패 (Critical for 3+1):', usageError);
+        const { error: usageError } = await supabase
+          .from('monthly_service_usage')
+          .upsert(
+            {
+              business_number: formData.businessNumber,
+              year_month: yearMonth,
+              used_boxes: newUsedBoxes,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: 'business_number,year_month',
             }
-          } catch (e) {
-            console.error('월별 사용량 업데이트 중 예외 발생:', e);
-          }
-        }
+          );
 
-        if (shouldCreateApron) {
-          try {
-            setProcessingStatus('5/5. 앞치마 신청 접수 중...');
-            const { error: apronInsertError } = await supabase.from('apron_requests').insert({
-              user_id: user.id,
-              quantity: 5,
-              status: 'pending'
-            });
-            if (apronInsertError) {
-              console.error('앞치마 자동 신청 실패:', apronInsertError);
-            }
-          } catch (e) {
-            console.error('앞치마 자동 신청 중 예외 발생:', e);
-          }
+        if (usageError) {
+          console.error('월별 사용량 업데이트 실패 (Critical for 3+1):', usageError);
         }
-      })().catch((e) => {
-        console.error('Background post-order tasks failed:', e);
-      });
+      }
+
+      // 5. 앞치마 자동 신청
+      if (shouldCreateApron) {
+        setProcessingStatus('5/5. 앞치마 신청 접수 중...');
+        const { error: apronInsertError } = await supabase.from('apron_requests').insert({
+          user_id: user.id,
+          quantity: 5,
+          status: 'pending',
+        });
+        if (apronInsertError) {
+          console.error('앞치마 자동 신청 실패:', apronInsertError);
+        }
+      }
 
       return { shouldCreateApron };
     })();
@@ -556,7 +593,7 @@ export const Order: React.FC = () => {
           setServiceItem('');
           setUsedServiceBoxesThisMonth(prev => prev + serviceBoxesCount);
           navigate('/');
-        }
+        },
       });
 
     } catch (err: any) {
@@ -565,7 +602,7 @@ export const Order: React.FC = () => {
         isOpen: true,
         title: '주문 실패',
         message: `주문 처리 중 오류가 발생했습니다.\n다시 시도해 주세요.\n(오류 내용: ${err.message || 'Unknown'})`,
-        type: 'error'
+        type: 'error',
       });
     } finally {
       setLoading(false);
