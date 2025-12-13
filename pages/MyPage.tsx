@@ -658,7 +658,7 @@ export const MyPage: React.FC = () => {
                       <div className="text-xs text-gray-400 mt-1">주문번호: {order.id}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px - 2 py - 1 rounded - full text - xs font - semibold ${getStatusColor(order.status)} `}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
                       </span>
                       <div className="text-xs text-gray-500 text-right">
@@ -707,6 +707,50 @@ export const MyPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Order Actions - Cancellation Logic */}
+                  <div className="mt-4 pt-3 border-t flex justify-end">
+                    {order.status === 'pending' ? (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('정말 주문을 취소하시겠습니까?')) return;
+
+                          try {
+                            const { error } = await supabase
+                              .from('orders')
+                              .update({ status: 'cancelled' })
+                              .eq('id', order.id);
+
+                            if (error) throw error;
+
+                            alert('주문이 취소되었습니다.');
+                            // Refresh orders locally
+                            setOrders(prev => prev.map(o =>
+                              o.id === order.id ? { ...o, status: 'cancelled' } : o
+                            ));
+                          } catch (e) {
+                            console.error('Cancel failed', e);
+                            alert('주문 취소에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded hover:bg-red-100 border border-red-200 transition-colors"
+                      >
+                        주문 취소
+                      </button>
+                    ) : order.status === 'cancelled' ? (
+                      <span className="text-gray-400 text-sm">취소된 주문입니다.</span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          alert('현재 배송 준비가 시작되어 즉시 취소가 어렵습니다.\n고객센터(031-906-1661)로 문의해주세요.');
+                        }}
+                        className="px-4 py-2 bg-gray-50 text-gray-600 text-sm font-medium rounded hover:bg-gray-100 border border-gray-200 transition-colors"
+                      >
+                        취소 문의
+                      </button>
+                    )}
+                  </div>
+
                 </div>
               ))}
             </div>
