@@ -14,9 +14,17 @@ export const Landing: React.FC = () => {
       if (session) {
         const { data: user } = await supabase
           .from('users')
-          .select('id')
+          .select('id, is_blocked')
           .eq('id', session.user.id)
           .single();
+
+        if (user?.is_blocked) {
+          await supabase.auth.signOut();
+          alert('관리자에 의해 이용이 제한된 계정입니다.\n고객센터(031-906-1661)로 문의해주세요.');
+          setIsLoggedIn(false);
+          return;
+        }
+
         setIsLoggedIn(!!user);
       } else {
         setIsLoggedIn(false);
@@ -28,9 +36,17 @@ export const Landing: React.FC = () => {
       if (session) {
         const { data: user } = await supabase
           .from('users')
-          .select('id')
+          .select('id, is_blocked')
           .eq('id', session.user.id)
           .single();
+
+        if (user?.is_blocked) {
+          await supabase.auth.signOut();
+          alert('관리자에 의해 이용이 제한된 계정입니다.\n고객센터(031-906-1661)로 문의해주세요.');
+          setIsLoggedIn(false);
+          return;
+        }
+
         setIsLoggedIn(!!user);
       } else {
         setIsLoggedIn(false);
@@ -81,10 +97,10 @@ export const Landing: React.FC = () => {
             <div className="text-5xl sm:text-6xl lg:text-7xl">한국외식업중앙회</div>
             <div className="text-2xl sm:text-3xl lg:text-4xl mt-2">경기도북부지회 고양시일산구지부</div>
           </h1>
-	          <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto">
-	            회원님들을 위한 특별한 혜택! <br />
-	            업소용 음료 주문부터 직원용 앞치마 무상 지급 혜택까지, 간편하게 이용하세요.
-	          </p>
+          <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto">
+            회원님들을 위한 특별한 혜택! <br />
+            업소용 음료 주문부터 직원용 앞치마 무상 지급 혜택까지, 간편하게 이용하세요.
+          </p>
           <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
             <button
               onClick={handleButtonClick}

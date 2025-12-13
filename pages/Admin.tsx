@@ -51,19 +51,51 @@ export const Admin: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [deleteConfirmationName, setDeleteConfirmationName] = useState('');
 
+  // User Management State
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState<Partial<UserProfile>>({});
+
+  // User Action Modal State
+  const [showUserActionModal, setShowUserActionModal] = useState(false);
+  const [userActionType, setUserActionType] = useState<'EDIT' | 'DELETE' | null>(null);
+  const [userActionTarget, setUserActionTarget] = useState<UserProfile | null>(null);
+  const [userActionEmail, setUserActionEmail] = useState('');
+
+
+  // Helper for date range buttons
+  const setDateRangeHelper = (range: '1W' | '1M' | '3M', type: 'order' | 'apron') => {
+    const end = new Date();
+    const start = new Date();
+
+    if (range === '1W') start.setDate(end.getDate() - 7);
+    if (range === '1M') start.setMonth(end.getMonth() - 1);
+    if (range === '3M') start.setMonth(end.getMonth() - 3);
+
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+
+    if (type === 'order') {
+      setOrderDateStart(startStr);
+      setOrderDateEnd(endStr);
+    } else {
+      setApronDateStart(startStr);
+      setApronDateEnd(endStr);
+    }
+  };
+
 
   useEffect(() => {
-    // Set default date range (this month)
+    // Set default date range (this week)
     const today = new Date();
-    const lastMonth = new Date();
-    lastMonth.setMonth(today.getMonth() - 1);
+    const lastWeek = new Date();
+    lastWeek.setDate(today.getDate() - 7);
 
     const todayStr = today.toISOString().split('T')[0];
-    const lastMonthStr = lastMonth.toISOString().split('T')[0];
+    const lastWeekStr = lastWeek.toISOString().split('T')[0];
 
-    setOrderDateStart(lastMonthStr);
+    setOrderDateStart(lastWeekStr);
     setOrderDateEnd(todayStr);
-    setApronDateStart(lastMonthStr);
+    setApronDateStart(lastWeekStr);
     setApronDateEnd(todayStr);
 
     checkAdminAndFetch();
@@ -236,6 +268,76 @@ export const Admin: React.FC = () => {
     setDeleteConfirmationName('');
   };
 
+  // --- User Management Handlers ---
+
+  const handleEditUserClick = (user: UserProfile) => {
+    if (editingUserId === user.id) {
+      setEditingUserId(null);
+      return;
+    }
+    setEditingUserId(user.id);
+    setUserForm(user);
+  };
+
+  const handleUserFormChange = (field: keyof UserProfile, value: any) => {
+    setUserForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const initiateSaveUser = (user: UserProfile) => {
+    setUserActionType('EDIT');
+    setUserActionTarget(user);
+    setUserActionEmail('');
+    setShowUserActionModal(true);
+  };
+
+  const initiateDeleteUser = (user: UserProfile) => {
+    setUserActionType('DELETE');
+    setUserActionTarget(user);
+    setUserActionEmail('');
+    setShowUserActionModal(true);
+  };
+
+  const handleToggleBlock = async (user: UserProfile) => {
+    if (!confirm(user.is_blocked ? '차단을 해제하시겠습니까?' : '이 회원의 로그인을 차단하시겠습니까?')) return;
+
+    const newStatus = !user.is_blocked;
+    const { error } = await supabase.from('users').update({ is_blocked: newStatus }).eq('id', user.id);
+    if (error) {
+      alert('상태 변경 실패: ' + error.message);
+    } else {
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_blocked: newStatus } : u));
+    }
+  };
+
+  const executeUserAction = async () => {
+    if (!userActionTarget) return;
+    if (userActionEmail !== userActionTarget.email) return;
+
+    if (userActionType === 'EDIT') {
+      const { error } = await supabase.from('users').update({
+        name: userForm.name,
+        business_name: userForm.business_name,
+        business_number: userForm.business_number,
+        phone: userForm.phone
+      }).eq('id', userActionTarget.id);
+
+      if (error) alert('회원 정보 수정 실패: ' + error.message);
+      else {
+        alert('회원 정보가 수정되었습니다.');
+        setEditingUserId(null);
+        fetchUsers();
+      }
+    } else if (userActionType === 'DELETE') {
+      const { error } = await supabase.from('users').delete().eq('id', userActionTarget.id);
+      if (error) alert('회원 삭제 실패: ' + error.message);
+      else {
+        alert('회원 정보가 완전히 삭제되었습니다.');
+        fetchUsers();
+      }
+    }
+    setShowUserActionModal(false);
+  };
+
   const handleCancelProductForm = () => {
     setShowProductForm(false);
     setEditingProductId(null);
@@ -396,9 +498,14 @@ export const Admin: React.FC = () => {
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label>
                     <div className="flex items-center gap-2">
-                      <input type="date" value={orderDateStart} onChange={(e) => setOrderDateStart(e.target.value)} className="p-2 border rounded text-sm" />
+                      <input type="date" value={orderDateStart} onChange={(e) => setOrderDateStart(e.target.value)} className="p-2 border rounded text-sm w-32" />
                       <span className="text-gray-400">~</span>
-                      <input type="date" value={orderDateEnd} onChange={(e) => setOrderDateEnd(e.target.value)} className="p-2 border rounded text-sm" />
+                      <input type="date" value={orderDateEnd} onChange={(e) => setOrderDateEnd(e.target.value)} className="p-2 border rounded text-sm w-32" />
+                      <div className="flex bg-gray-100 rounded p-1 ml-2">
+                        <button onClick={() => setDateRangeHelper('1W', 'order')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">1주일</button>
+                        <button onClick={() => setDateRangeHelper('1M', 'order')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">1개월</button>
+                        <button onClick={() => setDateRangeHelper('3M', 'order')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">3개월</button>
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -497,7 +604,19 @@ export const Admin: React.FC = () => {
               <div>
                 {/* ... Apron content (Same as before) ... */}
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
-                  <div><label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label><div className="flex items-center gap-2"><input type="date" value={apronDateStart} onChange={(e) => setApronDateStart(e.target.value)} className="p-2 border rounded text-sm" /><span className="text-gray-400">~</span><input type="date" value={apronDateEnd} onChange={(e) => setApronDateEnd(e.target.value)} className="p-2 border rounded text-sm" /></div></div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label>
+                    <div className="flex items-center gap-2">
+                      <input type="date" value={apronDateStart} onChange={(e) => setApronDateStart(e.target.value)} className="p-2 border rounded text-sm w-32" />
+                      <span className="text-gray-400">~</span>
+                      <input type="date" value={apronDateEnd} onChange={(e) => setApronDateEnd(e.target.value)} className="p-2 border rounded text-sm w-32" />
+                      <div className="flex bg-gray-100 rounded p-1 ml-2">
+                        <button onClick={() => setDateRangeHelper('1W', 'apron')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">1주일</button>
+                        <button onClick={() => setDateRangeHelper('1M', 'apron')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">1개월</button>
+                        <button onClick={() => setDateRangeHelper('3M', 'apron')} className="px-2 py-1 text-xs hover:bg-white rounded transition-colors">3개월</button>
+                      </div>
+                    </div>
+                  </div>
                   <div><label className="block text-xs font-medium text-gray-500 mb-1">상태 필터</label><select value={apronStatusFilter} onChange={(e) => setApronStatusFilter(e.target.value as any)} className="p-2 border rounded text-sm w-32"><option value="ALL">전체</option><option value="pending">접수</option><option value="completed">발송완료</option></select></div>
                   <div className="flex-1 min-w-[200px]"><label className="block text-xs font-medium text-gray-500 mb-1">통합 검색 (업소명, 신청자)</label><div className="relative"><input type="text" value={apronSearchKeyword} onChange={(e) => setApronSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" /><i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i></div></div>
                 </div>
@@ -515,9 +634,92 @@ export const Admin: React.FC = () => {
             {/* 3. USER LIST (Unchanged) */}
             {activeTab === 'users' && (
               <div>
-                {/* ... User content (Same as before) ... */}
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end"><div className="flex-1 min-w-[300px]"><label className="block text-xs font-medium text-gray-500 mb-1">회원 검색 (이름, 업소명, 연락처, 이메일, 사업자번호)</label><div className="relative"><input type="text" value={userSearchKeyword} onChange={(e) => setUserSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" /><i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i></div></div></div>
-                <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">가입일</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명 / 사업자번호</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처 / 이메일</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{filteredUsers.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>) : (filteredUsers.map(u => (<tr key={u.id} className="hover:bg-gray-50"><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td><td className="px-6 py-4 text-sm text-gray-500"><div className="font-semibold text-gray-700">{u.business_name || '-'}</div><div className="text-xs">{u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}</div></td><td className="px-6 py-4 text-sm text-gray-500"><div className="text-gray-900">{u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</div><div className="text-xs text-gray-400">{u.email || '-'}</div></td></tr>)))}</tbody></table></div>
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[300px]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">회원 검색 (이름, 업소명, 연락처, 이메일, 사업자번호)</label>
+                    <div className="relative">
+                      <input type="text" value={userSearchKeyword} onChange={(e) => setUserSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" />
+                      <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">가입일/상태</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명 / 사업자번호</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처 / 이메일</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredUsers.length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>
+                      ) : (
+                        filteredUsers.map(u => (
+                          <React.Fragment key={u.id}>
+                            <tr className={`hover:bg-gray-50 ${u.is_blocked ? 'bg-red-50' : ''}`}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div>{new Date(u.created_at).toLocaleDateString()}</div>
+                                {u.is_blocked && <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600">차단됨</span>}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                <div className="font-semibold text-gray-700">{u.business_name || '-'}</div>
+                                <div className="text-xs">{u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}</div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                <div className="text-gray-900">{u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</div>
+                                <div className="text-xs text-gray-400">{u.email || '-'}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                <button
+                                  onClick={() => handleEditUserClick(u)}
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  {editingUserId === u.id ? '닫기' : '수정'}
+                                </button>
+                                <button
+                                  onClick={() => handleToggleBlock(u)}
+                                  className={`font-medium ${u.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}
+                                >
+                                  {u.is_blocked ? '해제' : '차단'}
+                                </button>
+                                <button
+                                  onClick={() => initiateDeleteUser(u)}
+                                  className="text-red-600 hover:text-red-800 font-medium"
+                                >
+                                  삭제
+                                </button>
+                              </td>
+                            </tr>
+                            {editingUserId === u.id && (
+                              <tr className="bg-blue-50 animate-fade-in">
+                                <td colSpan={5} className="px-6 py-4">
+                                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                                    <h4 className="font-bold text-gray-800 mb-3 text-sm">회원 정보 수정 (관리자 권한)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                      <div><label className="block text-xs font-medium text-gray-500">이름</label><input type="text" value={userForm.name || ''} onChange={(e) => handleUserFormChange('name', e.target.value)} className="w-full p-2 border rounded text-sm" /></div>
+                                      <div><label className="block text-xs font-medium text-gray-500">업소명</label><input type="text" value={userForm.business_name || ''} onChange={(e) => handleUserFormChange('business_name', e.target.value)} className="w-full p-2 border rounded text-sm" /></div>
+                                      <div><label className="block text-xs font-medium text-gray-500">사업자번호</label><input type="text" value={userForm.business_number || ''} onChange={(e) => handleUserFormChange('business_number', e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="'-' 없이 입력" /></div>
+                                      <div><label className="block text-xs font-medium text-gray-500">연락처</label><input type="text" value={userForm.phone || ''} onChange={(e) => handleUserFormChange('phone', e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="'-' 없이 입력" /></div>
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <button onClick={() => initiateSaveUser(u)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">저장하기</button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -678,6 +880,68 @@ export const Admin: React.FC = () => {
                 </button>
                 <button
                   onClick={() => { setShowDeleteModal(false); setProductToDelete(null); setDeleteConfirmationName(''); }}
+                  className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Action Modal */}
+      {showUserActionModal && userActionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${userActionType === 'DELETE' ? 'bg-red-100' : 'bg-blue-100'}`}>
+                  <i className={`fa-solid ${userActionType === 'DELETE' ? 'fa-triangle-exclamation text-red-600' : 'fa-check text-blue-600'} text-xl`}></i>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  {userActionType === 'DELETE' ? '회원 정보 완전 삭제' : '회원 정보 수정 확인'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {userActionType === 'DELETE' ? (
+                    <>
+                      이 작업은 되돌릴 수 없습니다.<br />
+                      보안을 위해 <b>회원의 이메일 주소</b>를 입력해주세요.
+                    </>
+                  ) : (
+                    <>
+                      관리자 권한으로 정보를 수정합니다.<br />
+                      확인을 위해 <b>회원의 이메일 주소</b>를 입력해주세요.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-center">
+                <p className="text-xs text-gray-500 mb-1">입력해야 할 이메일</p>
+                <p className="font-bold text-gray-800 text-sm select-all">{userActionTarget.email}</p>
+              </div>
+
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  value={userActionEmail}
+                  onChange={(e) => setUserActionEmail(e.target.value)}
+                  placeholder="이메일을 입력하세요"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                />
+                <button
+                  onClick={executeUserAction}
+                  disabled={userActionEmail !== userActionTarget.email}
+                  className={`w-full py-3 px-4 rounded-lg font-bold text-white transition-all ${userActionEmail === userActionTarget.email
+                    ? (userActionType === 'DELETE' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700')
+                    : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                >
+                  {userActionType === 'DELETE' ? '삭제하기' : '수정하기'}
+                </button>
+                <button
+                  onClick={() => setShowUserActionModal(false)}
                   className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
                 >
                   취소

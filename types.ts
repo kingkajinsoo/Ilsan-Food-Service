@@ -11,6 +11,7 @@ export interface UserProfile {
   created_at: string;
   terms_agreed_at?: string | null;
   privacy_agreed_at?: string | null;
+  is_blocked?: boolean;
 }
 
 export interface UserAddress {
