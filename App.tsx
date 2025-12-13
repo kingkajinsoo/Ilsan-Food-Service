@@ -8,8 +8,28 @@ import { Admin } from './pages/Admin';
 import { MyPage } from './pages/MyPage';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
+  const [isSessionLoaded, setIsSessionLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(() => {
+      setIsSessionLoaded(true);
+    });
+  }, []);
+
+  if (!isSessionLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">앱을 실행 중입니다...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
