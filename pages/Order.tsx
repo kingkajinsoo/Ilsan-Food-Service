@@ -44,6 +44,7 @@ export const Order: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [serviceProductOptions, setServiceProductOptions] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'CAN' | 'BOTTLE' | 'WATER'>('ALL');
+  const [quickOrderMode, setQuickOrderMode] = useState(false);
 
   // Cart State: { productId: quantity }
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -112,6 +113,63 @@ export const Order: React.FC = () => {
         }));
       }
     }).open();
+  };
+
+  // Recent Order Logic
+  const handleLoadRecentOrder = async () => {
+    setLoading(true);
+    try {
+      const { data: lastOrder, error } = await supabase
+        .from('orders')
+        .select('items')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      if (!lastOrder) {
+        setModalState({
+          isOpen: true,
+          title: '알림',
+          message: '최근 주문 내역이 없습니다.\n첫 주문을 진행해보세요! 😄',
+          type: 'info'
+        });
+        return;
+      }
+
+      // Parse items and update cart
+      const newCart: Record<string, number> = {};
+      const items = lastOrder.items as OrderItem[];
+      items.forEach(item => {
+        newCart[item.productId] = item.quantity;
+      });
+
+      setCart(newCart);
+      setQuickOrderMode(true);
+      setModalState({
+        isOpen: true,
+        title: '불러오기 완료',
+        message: '지난번 주문하신 내역을 장바구니에 담았습니다!',
+        type: 'success'
+      });
+
+    } catch (e) {
+      console.error(e);
+      setModalState({
+        isOpen: true,
+        title: '오류',
+        message: '주문 내역을 불러오는 중 문제가 발생했습니다.',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExitQuickOrderMode = () => {
+    setQuickOrderMode(false);
   };
 
   useEffect(() => {
@@ -664,14 +722,42 @@ export const Order: React.FC = () => {
             </button>
           </div>
 
+          {/* Quick Order Button */}
+          <button
+            onClick={handleLoadRecentOrder}
+            className="w-full mb-4 py-3 bg-blue-100 text-blue-700 rounded-xl font-bold flex items-center justify-center hover:bg-blue-200 transition-colors shadow-sm"
+          >
+            <i className="fa-solid fa-clock-rotate-left mr-2"></i>
+            최근 주문내역 불러오기
+          </button>
+
+          {quickOrderMode && (
+            <div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200 flex justify-between items-center">
+              <span className="text-blue-800 font-bold text-sm">✨ 지난번 주문상품만 모아보기</span>
+              <button onClick={handleExitQuickOrderMode} className="text-sm text-gray-500 underline">전체 보기</button>
+            </div>
+          )}
+
           <div className="space-y-4">
-            {products.filter(product => activeCategory === 'ALL' || product.category === activeCategory).length === 0 ? (
+            {products
+              .filter(product => {
+                if (quickOrderMode) {
+                  return !!cart[product.id];
+                }
+                return activeCategory === 'ALL' || product.category === activeCategory;
+              })
+              .length === 0 ? (
               <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
-                해당 카테고리에 상품이 없습니다.
+                {quickOrderMode ? '장바구니가 비어있습니다.' : '해당 카테고리에 상품이 없습니다.'}
               </div>
             ) : (
               products
-                .filter(product => activeCategory === 'ALL' || product.category === activeCategory)
+                .filter(product => {
+                  if (quickOrderMode) {
+                    return !!cart[product.id];
+                  }
+                  return activeCategory === 'ALL' || product.category === activeCategory;
+                })
                 .map(product => (
                   <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border">
                     <div className="flex items-start space-x-3">
