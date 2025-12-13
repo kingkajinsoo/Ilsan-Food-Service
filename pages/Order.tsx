@@ -926,11 +926,11 @@ export const Order: React.FC = () => {
 
               {/* 주소 검색 */}
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-sm font-semibold text-gray-700">배송지</label>
+                <div className="mb-1">
+                  <label className="text-sm font-semibold text-gray-700 block mb-2">배송지</label>
                   {addresses.length > 0 && (
                     <select
-                      className="text-xs border border-blue-300 rounded px-2 py-1 text-blue-700 bg-blue-50 focus:outline-none"
+                      className="w-full text-sm border border-blue-300 rounded px-3 py-2 text-blue-700 bg-blue-50 focus:outline-none mb-2"
                       onChange={(e) => {
                         const selectedId = e.target.value;
                         if (!selectedId) return;
