@@ -115,28 +115,33 @@ export const Order: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 0. Explicit Session Check (Force Refresh) - Throttled
-      try {
-        const lastCheck = sessionStorage.getItem('last_auth_refresh');
-        const now = Date.now();
-        // Only refresh if more than 60 seconds passed since last check to prevent loops
-        if (!lastCheck || now - parseInt(lastCheck) > 60000) {
-          const { data, error } = await supabase.auth.refreshSession();
-          if (error && !data.session) { // Only throw if truly failed and no session
-            // If error but session exists (e.g. network blip), might be okay to proceed? 
-            // Safest is to rely on getSession below.
-            console.warn('Refresh warning:', error);
-          }
-          sessionStorage.setItem('last_auth_refresh', now.toString());
-        }
-      } catch (e) {
-        console.error('Session refresh failed on load:', e);
-        // Don't redirect immediately on minor errors, let getSession decide
-      }
-
+      // 1. Get current session first
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
+        // 2. Check Expiry: Only refresh if expired or expiring in < 5 mins (300s)
+        const expiresAt = session.expires_at;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+
+        if (expiresAt && (expiresAt - nowSeconds < 300)) {
+          console.log('Session expiring soon, refreshing...');
+          try {
+            const refreshPromise = supabase.auth.refreshSession();
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+            const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
+
+            if (error || !data.session) {
+              throw new Error('Refresh failed');
+            }
+          } catch (e) {
+            console.error('Session refresh failed:', e);
+            alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+            navigate('/');
+            return;
+          }
+        }
+
+        // 3. Valid Session - Load User Data
         const { data: profile } = await supabase.from('users').select('*').eq('id', session.user.id).single();
         if (profile) {
           setUser(profile as UserProfile);
@@ -210,14 +215,15 @@ export const Order: React.FC = () => {
           console.error('Failed to calculate apron auto-application info', e);
         }
       } else {
+        // No session found
         navigate('/');
+        return;
       }
 
       // Fetch products from database
       const { data: productsData, error: productsError } = await supabase.from('products').select('*');
       if (productsError) {
         console.error('Failed to load products:', productsError);
-        // Maybe show an alert or set empty?
       }
       if (productsData) {
         // Custom sort: 칠성사이다 → 펩시 → 기타

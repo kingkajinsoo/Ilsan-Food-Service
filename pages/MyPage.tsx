@@ -25,30 +25,32 @@ export const MyPage: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 0. Explicit Session Check (Force Refresh) - Throttled
-      try {
-        const lastCheck = sessionStorage.getItem('last_auth_refresh');
-        const now = Date.now();
-        if (!lastCheck || now - parseInt(lastCheck) > 60000) {
-          const { data, error } = await supabase.auth.refreshSession();
-          if (error && !data.session) {
-            console.warn('Refresh warning:', error);
-          }
-          sessionStorage.setItem('last_auth_refresh', now.toString());
-        }
-      } catch (e) {
-        console.error('Session refresh failed on load:', e);
-        // alert('로그인이 만료되었습니다. 다시 로그인해주세요.'); // Don't alert here to avoid spamming alerts in loops
-        // navigate('/');
-        // return;
-      }
-
+      // 1. Get current session
       const { data: { session } } = await supabase.auth.getSession();
+
       if (!session) {
         navigate('/');
         return;
       }
 
+      // 2. Check refresh if expiring (< 5 mins)
+      const expiresAt = session.expires_at;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (expiresAt && (expiresAt - nowSeconds < 300)) {
+        try {
+          const refreshPromise = supabase.auth.refreshSession();
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+          const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
+          if (error || !data.session) throw new Error('Refreshed failed');
+        } catch (e) {
+          console.error('Session refresh failed:', e);
+          alert('로그인이 만료되었습니다.');
+          navigate('/');
+          return;
+        }
+      }
+
+      // 3. Load Data
       // 1) 사용자 프로필 조회
       const { data: profile, error: profileError } = await supabase
         .from('users')
