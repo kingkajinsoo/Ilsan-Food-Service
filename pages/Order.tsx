@@ -419,16 +419,31 @@ export const Order: React.FC = () => {
     setLoading(true);
     setProcessingStatus('로그인 연결 상태 확인 중...');
 
-    // 0. Session Check & Force Refresh (Fix for Mobile Freeze)
+    // 0. Session Check (Conditional Refresh)
     try {
-      // Race: Refresh vs 5s Timeout (Prevent Infinite Hang)
-      const refreshPromise = supabase.auth.refreshSession();
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
+      if (!session) {
+        throw new Error('No session');
+      }
 
-      if (error || !data?.session) {
-        throw new Error('Session invalid');
+      // Check Expiry: Only refresh if expired or expiring in < 5 mins
+      const expiresAt = session.expires_at;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+
+      if (expiresAt && (expiresAt - nowSeconds < 300)) {
+        console.log('Session expiring soon during submit, refreshing...');
+        const refreshPromise = supabase.auth.refreshSession();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+
+        const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
+
+        if (error || !data?.session) {
+          // If refresh fails but we had a session... 
+          // We might want to throw, OR try to proceed? 
+          // Safe bet: Throw, because insert will fail anyway.
+          throw new Error('Session refresh failed');
+        }
       }
     } catch (e) {
       console.error('Session validation failed:', e);
