@@ -430,6 +430,14 @@ export const Order: React.FC = () => {
     e.preventDefault();
     if (!isValidOrder || !user) return;
 
+    // [New] Check Terms Agreement
+    if (!user.terms_agreed_at || !user.privacy_agreed_at) {
+      alert('서비스 이용을 위해 약관 및 개인정보처리방침 동의가 필요합니다.\n화면 상단의 동의 팝업을 확인해주세요.');
+      // Force refresh page to show modal if it fails
+      window.location.reload();
+      return;
+    }
+
     setLoading(true);
     setProcessingStatus('주문 처리를 시작합니다...');
 
@@ -672,6 +680,26 @@ export const Order: React.FC = () => {
       modalState.onCloseAction();
     }
   };
+
+  // [New] Privacy Blocker: Hide products if terms are not agreed
+  if (user && (!user.terms_agreed_at || !user.privacy_agreed_at)) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+        <div className="bg-blue-50 p-6 rounded-full mb-4">
+          <i className="fa-solid fa-user-shield text-4xl text-blue-500"></i>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">약관 동의가 필요합니다</h2>
+        <p className="text-gray-600 mb-6 max-w-md">
+          원활한 서비스 이용과 주문 처리를 위해<br />
+          이용약관 및 개인정보처리방침 동의가 필요합니다.
+        </p>
+        <p className="text-sm text-blue-600 font-medium animate-pulse">
+          <i className="fa-solid fa-arrow-up mr-2"></i>
+          화면 상단의 동의 팝업을 확인해주세요
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
