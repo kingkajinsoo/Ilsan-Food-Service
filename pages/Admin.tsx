@@ -811,12 +811,7 @@ export const Admin: React.FC = () => {
                                 >
                                   {u.is_blocked ? '해제' : '차단'}
                                 </button>
-                                <button
-                                  onClick={() => initiateDeleteUser(u)}
-                                  className="text-red-600 hover:text-red-800 font-medium"
-                                >
-                                  삭제
-                                </button>
+                                { /* Delete button removed by request */}
                               </td>
                             </tr>
                             {editingUserId === u.id && (
