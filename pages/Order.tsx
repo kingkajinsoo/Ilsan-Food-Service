@@ -733,25 +733,25 @@ export const Order: React.FC = () => {
 
           {Object.keys(cart).length > 0 && (
             <div
-              className={`mb-4 p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${quickOrderMode ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-gray-300 hover:bg-gray-50'
-                }`}
+              className="mb-4 flex items-center justify-between cursor-pointer group select-none"
               onClick={() => setQuickOrderMode(!quickOrderMode)}
             >
               <div className="flex items-center">
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 transition-colors ${quickOrderMode ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'
-                  }`}>
-                  {quickOrderMode && <i className="fa-solid fa-check text-white text-xs"></i>}
-                </div>
-                <span className={`font-bold ${quickOrderMode ? 'text-blue-800' : 'text-gray-700'}`}>
+                <span className={`font-bold text-lg transition-colors ${quickOrderMode ? 'text-blue-800' : 'text-gray-600'}`}>
                   담은 상품만 모아보기
-                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full align-middle">
                     {Object.keys(cart).length}개
                   </span>
                 </span>
+                <span className="ml-2 text-xs text-gray-400 font-normal hidden sm:inline-block">
+                  {quickOrderMode ? '지금은 선택한 상품만 보입니다' : '이전에 담은 상품만 빠르게 확인하세요'}
+                </span>
               </div>
-              <span className="text-sm text-gray-400 font-medium">
-                {quickOrderMode ? '전체 보기 >' : '클릭해서 필터링'}
-              </span>
+
+              {/* Toggle Switch UI */}
+              <div className={`relative w-14 h-8 transition-colors duration-300 ease-in-out rounded-full focus:outline-none ${quickOrderMode ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 left-1 bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ease-in-out ${quickOrderMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+              </div>
             </div>
           )}
 
