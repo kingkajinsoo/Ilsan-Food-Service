@@ -41,18 +41,29 @@ export const Navbar: React.FC = () => {
     return false;
   };
 
+  // Ref to track current user ID without closure staleness
+  const userIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Optimization: Ignore token refreshes to prevent redundant profile fetches
+      if (event === 'TOKEN_REFRESHED') return;
+
       if (session) {
-        await ensureUserProfile(session);
+        // Only fetch profile if it's a new user or different from current
+        if (userIdRef.current !== session.user.id) {
+          await ensureUserProfile(session);
+        }
+
         // Redirect to order page after successful login
         if (event === 'SIGNED_IN' && location.pathname === '/') {
           navigate('/order');
         }
       } else {
         setUser(null);
+        userIdRef.current = null;
       }
     });
 
@@ -62,13 +73,19 @@ export const Navbar: React.FC = () => {
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      await ensureUserProfile(session);
+      if (userIdRef.current !== session.user.id) {
+        await ensureUserProfile(session);
+      }
     } else {
       setUser(null);
+      userIdRef.current = null;
     }
   };
 
   const ensureUserProfile = async (session: any) => {
+    // Optimistic set to prevent double-fetch while awaiting
+    userIdRef.current = session.user.id;
+
     try {
       // 1. Try to get existing profile
       const { data, error } = await supabase
@@ -98,10 +115,13 @@ export const Navbar: React.FC = () => {
           setUser({ ...newProfile, created_at: new Date().toISOString() } as UserProfile);
         } else {
           console.error("Error creating user profile:", insertError);
+          // If failed, reset ref so we try again next time?
+          userIdRef.current = null;
         }
       }
     } catch (e) {
       console.error(e);
+      userIdRef.current = null;
     }
   };
 
@@ -168,24 +188,24 @@ export const Navbar: React.FC = () => {
             </Link>
           </div>
 
-	          <div className="hidden md:flex md:items-center md:space-x-4">
-	            {user ? (
-	              <>
-	                <Link to="/order" className="text-gray-700 hover:text-blue-600 font-medium">상품 주문</Link>
-	                <Link to="/mypage" className="text-gray-700 hover:text-blue-600 font-medium">마이페이지</Link>
-	                {isAdmin && (
-	                  <Link to="/admin" className="text-red-600 font-bold hover:text-red-800">관리자</Link>
-	                )}
-	                <span className="text-gray-400">|</span>
-	                <span className="text-sm text-gray-600">{user.business_name || user.name}님</span>
-	                <button
-	                  onClick={handleLogout}
-	                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300"
-	                >
-	                  로그아웃
-	                </button>
-	              </>
-	            ) : (
+          <div className="hidden md:flex md:items-center md:space-x-4">
+            {user ? (
+              <>
+                <Link to="/order" className="text-gray-700 hover:text-blue-600 font-medium">상품 주문</Link>
+                <Link to="/mypage" className="text-gray-700 hover:text-blue-600 font-medium">마이페이지</Link>
+                {isAdmin && (
+                  <Link to="/admin" className="text-red-600 font-bold hover:text-red-800">관리자</Link>
+                )}
+                <span className="text-gray-400">|</span>
+                <span className="text-sm text-gray-600">{user.business_name || user.name}님</span>
+                <button
+                  onClick={handleLogout}
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300"
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
               <button
                 onClick={async () => {
                   await supabase.auth.signInWithOAuth({
@@ -222,30 +242,30 @@ export const Navbar: React.FC = () => {
       {isOpen && (
         <div className="md:hidden bg-white border-t border-gray-200">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-	            {user ? (
-	              <>
-	                <div className="px-3 py-2 text-sm text-gray-500 font-semibold">
-	                  {user.business_name || user.name}님 환영합니다.
-	                </div>
-	                <MobileNavLink to="/order" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
-	                  상품 주문
-	                </MobileNavLink>
-	                <MobileNavLink to="/mypage" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
-	                  마이페이지
-	                </MobileNavLink>
-	                {isAdmin && (
-	                  <MobileNavLink to="/admin" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
-	                    관리자 페이지
-	                  </MobileNavLink>
-	                )}
-	                <button
-	                  onClick={handleLogout}
-	                  className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100"
-	                >
-	                  로그아웃
-	                </button>
-	              </>
-	            ) : (
+            {user ? (
+              <>
+                <div className="px-3 py-2 text-sm text-gray-500 font-semibold">
+                  {user.business_name || user.name}님 환영합니다.
+                </div>
+                <MobileNavLink to="/order" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
+                  상품 주문
+                </MobileNavLink>
+                <MobileNavLink to="/mypage" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
+                  마이페이지
+                </MobileNavLink>
+                {isAdmin && (
+                  <MobileNavLink to="/admin" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
+                    관리자 페이지
+                  </MobileNavLink>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
               <button
                 onClick={async () => {
                   await supabase.auth.signInWithOAuth({
@@ -355,11 +375,10 @@ export const Navbar: React.FC = () => {
                 <button
                   onClick={handleAgree}
                   disabled={!termsChecked || !privacyChecked}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition ${
-                    termsChecked && privacyChecked
+                  className={`flex-1 py-3 rounded-lg font-semibold transition ${termsChecked && privacyChecked
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   동의하고 시작하기
                 </button>

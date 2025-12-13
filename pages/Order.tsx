@@ -417,49 +417,6 @@ export const Order: React.FC = () => {
     if (!isValidOrder || !user) return;
 
     setLoading(true);
-    setProcessingStatus('로그인 연결 상태 확인 중...');
-
-    // 0. Session Check (Conditional Refresh)
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('No session');
-      }
-
-      // Check Expiry: Only refresh if expired or expiring in < 5 mins
-      const expiresAt = session.expires_at;
-      const nowSeconds = Math.floor(Date.now() / 1000);
-
-      if (expiresAt && (expiresAt - nowSeconds < 300)) {
-        console.log('Session expiring soon during submit, refreshing...');
-        const refreshPromise = supabase.auth.refreshSession();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-
-        const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
-
-        if (error || !data?.session) {
-          // If refresh fails but we had a session... 
-          // We might want to throw, OR try to proceed? 
-          // Safe bet: Throw, because insert will fail anyway.
-          throw new Error('Session refresh failed');
-        }
-      }
-    } catch (e) {
-      console.error('Session validation failed:', e);
-      setLoading(false);
-      setModalState({
-        isOpen: true,
-        title: '로그인 만료',
-        message: '로그인 연결이 끊어졌습니다.\n보안을 위해 다시 로그인해주세요.',
-        type: 'error',
-        onCloseAction: () => {
-          navigate('/'); // Go back to login
-        }
-      });
-      return;
-    }
-
     setProcessingStatus('주문 처리를 시작합니다...');
 
     // Safety Timeout Promise (모바일 환경에서는 타임아웃 시간 늘림)
