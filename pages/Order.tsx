@@ -476,7 +476,6 @@ export const Order: React.FC = () => {
         shouldCreateApron = isFirstOrder && !hasExistingApron;
       }
 
-      // 1. Prepare Items
       const orderItems: OrderItem[] = Object.entries(cart).map(([pid, qty]) => {
         const quantity = qty as number;
         const p = products.find(prod => prod.id === pid)!;
@@ -499,6 +498,16 @@ export const Order: React.FC = () => {
             price: 0,
           });
         }
+      }
+
+      // [NEW] Add Apron to Order Items (Dual Storage Strategy)
+      if (shouldCreateApron) {
+        serviceItemsList.push({
+          productId: 'APRON_AUTO',
+          productName: '[서비스] 첫주문 선물: 앞치마 5장',
+          quantity: 5,
+          price: 0,
+        });
       }
 
       // 2. 회원 정보 업데이트
@@ -538,7 +547,7 @@ export const Order: React.FC = () => {
       const { error } = await supabase.from('orders').insert({
         user_id: user.id,
         items: orderItems,
-        service_items: serviceItemsList,
+        service_items: serviceItemsList, // Now includes Apron if applicable
         total_boxes: totalPaidBoxes + serviceBoxesCount,
         total_amount: totalAmount,
         delivery_address: fullAddress,
@@ -595,13 +604,18 @@ export const Order: React.FC = () => {
         }
       }
 
-      // 5. 앞치마 자동 신청
+      // 5. 앞치마 자동 신청 (DB Snapshot Update)
       if (shouldCreateApron) {
         setProcessingStatus('5/5. 앞치마 신청 접수 중...');
         const { error: apronInsertError } = await supabase.from('apron_requests').insert({
           user_id: user.id,
           quantity: 5,
           status: 'pending',
+          // Snapshot Shipping Info
+          delivery_address: fullAddress,
+          phone: formData.phone,
+          business_name: formData.business_name,
+          business_number: formData.businessNumber
         });
         if (apronInsertError) {
           console.error('앞치마 자동 신청 실패:', apronInsertError);

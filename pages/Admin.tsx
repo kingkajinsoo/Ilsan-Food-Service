@@ -718,9 +718,36 @@ export const Admin: React.FC = () => {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">신청수량</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th></tr></thead>
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명 / 사업자번호</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처 / 주소</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">신청수량</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                      </tr>
+                    </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredAprons.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>) : (filteredAprons.map(req => (<tr key={req.id}><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(req as any).business_name}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{req.quantity}장</td><td className="px-6 py-4 whitespace-nowrap"><select value={req.status} onChange={(e) => updateApronStatus(req.id, e.target.value)} className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-orange-500 ${req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}><option value="pending">접수</option><option value="completed">발송완료</option></select></td></tr>)))}
+                      {filteredAprons.length === 0 ? (<tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>) : (filteredAprons.map(req => (
+                        <tr key={req.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            <div>{(req as any).business_name || '업소명 없음'}</div>
+                            <div className="text-xs text-gray-400 font-normal">{(req as any).business_number || '-'}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <div className="flex items-center gap-1"><i className="fa-solid fa-phone text-gray-400 text-xs"></i> {(req as any).phone || '-'}</div>
+                            <div className="text-xs text-gray-400 mt-1 truncate max-w-[200px]" title={(req as any).delivery_address || ''}><i className="fa-solid fa-map-marker-alt text-gray-400 mr-1"></i>{(req as any).delivery_address || '-'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold text-blue-600">{req.quantity}장</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <select value={req.status} onChange={(e) => updateApronStatus(req.id, e.target.value)} className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-orange-500 outline-none ${req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <option value="pending">접수</option>
+                              <option value="completed">발송완료</option>
+                            </select>
+                          </td>
+                        </tr>
+                      )))}
                     </tbody>
                   </table>
                 </div>

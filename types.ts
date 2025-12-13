@@ -59,7 +59,10 @@ export interface ApronRequest {
   id: string;
   user_id: string;
   user_name?: string;
-  business_name?: string;
+  business_name?: string; // Snapshot
+  business_number?: string; // Snapshot
+  phone?: string; // Snapshot
+  delivery_address?: string; // Snapshot
   quantity: number;
   status: 'pending' | 'completed';
   created_at: string;
