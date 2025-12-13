@@ -57,7 +57,7 @@ export const Admin: React.FC = () => {
 
   // User Action Modal State
   const [showUserActionModal, setShowUserActionModal] = useState(false);
-  const [userActionType, setUserActionType] = useState<'EDIT' | 'DELETE' | 'BLOCK' | null>(null);
+  const [userActionType, setUserActionType] = useState<'EDIT_ACCESS' | 'DELETE' | 'BLOCK' | null>(null);
   const [userActionTarget, setUserActionTarget] = useState<UserProfile | null>(null);
   const [userActionEmail, setUserActionEmail] = useState('');
 
@@ -272,22 +272,36 @@ export const Admin: React.FC = () => {
 
   const handleEditUserClick = (user: UserProfile) => {
     if (editingUserId === user.id) {
-      setEditingUserId(null);
+      setEditingUserId(null); // Just close if already open
       return;
     }
-    setEditingUserId(user.id);
-    setUserForm(user);
+    // Open verification modal to unlock edit
+    setUserActionType('EDIT_ACCESS');
+    setUserActionTarget(user);
+    setUserActionEmail('');
+    setShowUserActionModal(true);
   };
 
   const handleUserFormChange = (field: keyof UserProfile, value: any) => {
     setUserForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const initiateSaveUser = (user: UserProfile) => {
-    setUserActionType('EDIT');
-    setUserActionTarget(user);
-    setUserActionEmail('');
-    setShowUserActionModal(true);
+  const handleSaveUser = async (user: UserProfile) => {
+    if (!confirm('회원 정보를 수정하시겠습니까?')) return;
+
+    const { error } = await supabase.from('users').update({
+      name: userForm.name,
+      business_name: userForm.business_name,
+      business_number: userForm.business_number,
+      phone: userForm.phone
+    }).eq('id', user.id);
+
+    if (error) alert('회원 정보 수정 실패: ' + error.message);
+    else {
+      alert('회원 정보가 수정되었습니다.');
+      setEditingUserId(null);
+      fetchUsers();
+    }
   };
 
   const initiateDeleteUser = (user: UserProfile) => {
@@ -308,20 +322,10 @@ export const Admin: React.FC = () => {
     if (!userActionTarget) return;
     if (userActionEmail !== userActionTarget.email) return;
 
-    if (userActionType === 'EDIT') {
-      const { error } = await supabase.from('users').update({
-        name: userForm.name,
-        business_name: userForm.business_name,
-        business_number: userForm.business_number,
-        phone: userForm.phone
-      }).eq('id', userActionTarget.id);
-
-      if (error) alert('회원 정보 수정 실패: ' + error.message);
-      else {
-        alert('회원 정보가 수정되었습니다.');
-        setEditingUserId(null);
-        fetchUsers();
-      }
+    if (userActionType === 'EDIT_ACCESS') {
+      // Unlock edit mode
+      setEditingUserId(userActionTarget.id);
+      setUserForm(userActionTarget);
     } else if (userActionType === 'DELETE') {
       const { error } = await supabase.from('users').delete().eq('id', userActionTarget.id);
       if (error) alert('회원 삭제 실패: ' + error.message);
@@ -711,7 +715,7 @@ export const Admin: React.FC = () => {
                                       <div><label className="block text-xs font-medium text-gray-500">연락처</label><input type="text" value={userForm.phone || ''} onChange={(e) => handleUserFormChange('phone', e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="'-' 없이 입력" /></div>
                                     </div>
                                     <div className="flex justify-end">
-                                      <button onClick={() => initiateSaveUser(u)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">저장하기</button>
+                                      <button onClick={() => handleSaveUser(u)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">저장하기</button>
                                     </div>
                                   </div>
                                 </td>
