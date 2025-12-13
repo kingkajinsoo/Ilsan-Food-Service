@@ -681,6 +681,32 @@ export const Order: React.FC = () => {
     }
   };
 
+  // [New] Blocked User Check
+  if (user && user.verification_status === 'blocked') {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+        <div className="bg-red-50 p-6 rounded-full mb-4">
+          <i className="fa-solid fa-ban text-4xl text-red-500"></i>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">거래가 제한된 계정입니다</h2>
+        <p className="text-gray-600 mb-6 max-w-md">
+          본사 정책(프랜차이즈 계약 등)에 따라<br />
+          지점 직거래가 불가능한 사업자입니다.
+        </p>
+        <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-600">
+          <p className="font-bold mb-1">문의 및 안내</p>
+          <p>롯데칠성음료 고양지점</p>
+        </div>
+        <button
+          onClick={() => navigate('/')}
+          className="mt-8 text-gray-500 hover:text-gray-700 underline text-sm"
+        >
+          메인으로 돌아가기
+        </button>
+      </div>
+    );
+  }
+
   // [New] Privacy Blocker: Hide products if terms are not agreed
   if (user && (!user.terms_agreed_at || !user.privacy_agreed_at)) {
     return (

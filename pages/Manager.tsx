@@ -10,7 +10,11 @@ export const Manager: React.FC = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [aprons, setAprons] = useState<ApronRequest[]>([]);
     const [users, setUsers] = useState<UserProfile[]>([]);
+
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+    // --- Verification State ---
+    const [unverifiedOrders, setUnverifiedOrders] = useState<Order[]>([]);
 
     // --- Logistics State ---
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -57,7 +61,7 @@ export const Manager: React.FC = () => {
     const fetchOrders = async () => {
         const { data, error } = await supabase
             .from('orders')
-            .select('*, users(name, business_name, phone)')
+            .select('*, users(name, business_name, phone, verification_status)')
             .order('created_at', { ascending: false });
 
         if (error) console.error('Orders error:', error);
@@ -160,6 +164,55 @@ export const Manager: React.FC = () => {
         else {
             alert('입금 확인되었습니다.');
             fetchOrders();
+        }
+    };
+
+    // --- Verification Actions ---
+    const handleVerifyUser = async (orderId: string, userId: string, type: 'existing' | 'new' | 'block') => {
+        let confirmMsg = '';
+        if (type === 'block') confirmMsg = '정말 거절(차단)하시겠습니까?\n해당 주문은 취소되고 회원은 차단됩니다.';
+        if (type === 'existing') confirmMsg = '기존 거래처로 승인하시겠습니까?\n주문이 확정 처리됩니다.';
+        if (type === 'new') confirmMsg = '신규 거래처로 승인하시겠습니까?\n주문 확정 및 앞치마 요청이 자동 생성됩니다.';
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            if (type === 'block') {
+                // 1. Block User
+                await supabase.from('users').update({ verification_status: 'blocked' }).eq('id', userId);
+                // 2. Cancel Order
+                await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+            } else if (type === 'existing') {
+                // 1. Verify User
+                await supabase.from('users').update({ verification_status: 'verified_existing' }).eq('id', userId);
+                // 2. Confirm Order (if pending)
+                await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
+            } else if (type === 'new') {
+                // 1. Verify User
+                await supabase.from('users').update({ verification_status: 'verified_new' }).eq('id', userId);
+                // 2. Confirm Order
+                await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
+
+                // 3. Create Apron Request (Auto)
+                // Get User Info for Apron Request
+                const { data: userData } = await supabase.from('users').select('*').eq('id', userId).single();
+                if (userData) {
+                    await supabase.from('apron_requests').insert({
+                        user_id: userId,
+                        quantity: 1, // Default 1 pack? or specific amount? User said "Apron benefit". Let's assume 1 unit/pack.
+                        status: 'pending',
+                        business_name: userData.business_name,
+                        business_number: userData.business_number,
+                        phone: userData.phone,
+                        delivery_address: userData.address // Assuming address exists on user
+                    });
+                }
+            }
+            alert('처리되었습니다.');
+            fetchOrders();
+            fetchUsers();
+        } catch (e: any) {
+            alert('오류 발생: ' + e.message);
         }
     };
 
@@ -394,8 +447,8 @@ export const Manager: React.FC = () => {
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         <div className="text-gray-900 mb-1">{order.created_at.split('T')[0]}</div>
                                                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-block ${order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                                                                order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                                                                    order.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                                                                order.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                                                             }`}>
                                                             {order.status === 'pending' ? '대기' : order.status === 'confirmed' ? '확정' : order.status === 'delivered' ? '완료' : '취소'}
                                                         </span>
@@ -576,44 +629,109 @@ export const Manager: React.FC = () => {
 
                 {/* ======================= PERFORMANCE TAB ======================= */}
                 {activeTab === 'performance' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 className="font-bold text-gray-800 mb-4 flex items-center"><i className="fa-solid fa-user-plus mr-2 text-blue-500"></i>신규 가입 업소 (최근 7일)</h3>
+                    <div className="space-y-6">
+                        {/* --- NEW: Sign-up Review Section --- */}
+                        <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-6">
+                            <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                                <i className="fa-solid fa-clipboard-check mr-2 text-orange-500"></i>
+                                신규 가입 심사 대기 ({orders.filter(o => (o.users as any)?.verification_status === 'unverified' && o.status !== 'cancelled').length}건)
+                            </h3>
                             <div className="space-y-4">
-                                {users.filter(u => {
-                                    const date = new Date(u.created_at);
-                                    const weekAgo = new Date();
-                                    weekAgo.setDate(weekAgo.getDate() - 7);
-                                    return date > weekAgo;
-                                }).map(u => (
-                                    <div key={u.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                                {orders.filter(o => (o.users as any)?.verification_status === 'unverified' && o.status !== 'cancelled').map(order => (
+                                    <div key={order.id} className="bg-orange-50 border border-orange-100 rounded-lg p-4 flex flex-col md:flex-row justify-between gap-4">
                                         <div>
-                                            <div className="font-bold">{u.business_name || u.name}</div>
-                                            <div className="text-xs text-gray-500">{u.address?.split(' ')[1] || '주소미입력'} ({new Date(u.created_at).toLocaleDateString()})</div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="font-bold text-lg">{(order as any).business_name}</span>
+                                                <span className="text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500">{(order as any).users?.name}</span>
+                                            </div>
+
+                                            {/* Key Verification Info */}
+                                            <div className="bg-orange-100 p-3 rounded-lg border border-orange-200 mb-2 space-y-1">
+                                                <p className="text-sm font-bold text-gray-800 flex items-center">
+                                                    <i className="fa-solid fa-id-card w-6 text-center mr-2 text-orange-600"></i>
+                                                    {(order as any).business_number || '사업자번호 미입력'}
+                                                </p>
+                                                <p className="text-sm font-bold text-gray-800 flex items-center">
+                                                    <i className="fa-solid fa-phone w-6 text-center mr-2 text-orange-600"></i>
+                                                    {(order as any).phone || (order as any).user_phone || '연락처 미입력'}
+                                                </p>
+                                                <p className="text-sm text-gray-700 flex items-start">
+                                                    <i className="fa-solid fa-map-marker-alt w-6 text-center mr-2 mt-1 text-orange-600"></i>
+                                                    <span className="flex-1">{(order as any).delivery_address}</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="text-xs text-gray-500 pl-1">
+                                                첫 주문일: {order.created_at.split('T')[0]} | 주문액: {order.total_amount.toLocaleString()}원
+                                            </div>
                                         </div>
-                                        {u.phone && <a href={`tel:${u.phone}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-600 hover:bg-green-100 hover:text-green-600"><i className="fa-solid fa-phone"></i></a>}
+                                        <div className="flex flex-col gap-2 min-w-[180px]">
+                                            <button
+                                                onClick={() => handleVerifyUser(order.id, order.user_id, 'new')}
+                                                className="bg-blue-600 text-white px-3 py-2 rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm"
+                                            >
+                                                🎁 신규 인정 (앞치마)
+                                            </button>
+                                            <button
+                                                onClick={() => handleVerifyUser(order.id, order.user_id, 'existing')}
+                                                className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded text-sm font-bold hover:bg-gray-50 transition"
+                                            >
+                                                😐 기존 거래처 승인
+                                            </button>
+                                            <button
+                                                onClick={() => handleVerifyUser(order.id, order.user_id, 'block')}
+                                                className="bg-red-100 text-red-600 px-3 py-2 rounded text-sm font-bold hover:bg-red-200 transition"
+                                            >
+                                                🚫 거절/차단 (BHC 등)
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
+                                {orders.filter(o => (o.users as any)?.verification_status === 'unverified' && o.status !== 'cancelled').length === 0 && (
+                                    <div className="text-center py-4 text-gray-400 text-sm">심사 대기 중인 신규 주문이 없습니다.</div>
+                                )}
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 className="font-bold text-gray-800 mb-4 flex items-center"><i className="fa-solid fa-gift mr-2 text-purple-500"></i>최근 3+1 혜택 제공 내역</h3>
-                            <div className="space-y-4">
-                                {/* Logic: Find orders with service_items > 0 */}
-                                {orders.filter(o => o.service_items && o.service_items.length > 0)
-                                    .slice(0, 10) // Last 10
-                                    .map(o => (
-                                        <div key={o.id} className="py-2 border-b last:border-0 border-gray-100">
-                                            <div className="flex justify-between mb-1">
-                                                <span className="font-bold text-sm text-gray-800">{(o as any).business_name}</span>
-                                                <span className="text-xs text-gray-400">{o.created_at.split('T')[0]}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 className="font-bold text-gray-800 mb-4 flex items-center"><i className="fa-solid fa-user-plus mr-2 text-blue-500"></i>최근 가입 승인 내역</h3>
+                                <div className="space-y-4">
+                                    {users.filter(u => {
+                                        const date = new Date(u.created_at);
+                                        const weekAgo = new Date();
+                                        weekAgo.setDate(weekAgo.getDate() - 7);
+                                        return date > weekAgo;
+                                    }).map(u => (
+                                        <div key={u.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                                            <div>
+                                                <div className="font-bold">{u.business_name || u.name}</div>
+                                                <div className="text-xs text-gray-500">{u.address?.split(' ')[1] || '주소미입력'} ({new Date(u.created_at).toLocaleDateString()})</div>
                                             </div>
-                                            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                                                {o.service_items.map(s => `🎁 ${s.productName} ${s.quantity}박스`).join(', ')}
-                                            </div>
+                                            {u.phone && <a href={`tel:${u.phone}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-600 hover:bg-green-100 hover:text-green-600"><i className="fa-solid fa-phone"></i></a>}
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 className="font-bold text-gray-800 mb-4 flex items-center"><i className="fa-solid fa-gift mr-2 text-purple-500"></i>최근 3+1 혜택 제공 내역</h3>
+                                <div className="space-y-4">
+                                    {/* Logic: Find orders with service_items > 0 */}
+                                    {orders.filter(o => o.service_items && o.service_items.length > 0)
+                                        .slice(0, 10) // Last 10
+                                        .map(o => (
+                                            <div key={o.id} className="py-2 border-b last:border-0 border-gray-100">
+                                                <div className="flex justify-between mb-1">
+                                                    <span className="font-bold text-sm text-gray-800">{(o as any).business_name}</span>
+                                                    <span className="text-xs text-gray-400">{o.created_at.split('T')[0]}</span>
+                                                </div>
+                                                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                                    {o.service_items.map(s => `🎁 ${s.productName} ${s.quantity}박스`).join(', ')}
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
                             </div>
                         </div>
                     </div>
