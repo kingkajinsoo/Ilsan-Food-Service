@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, UserProfile, UserAddress } from '../types';
@@ -23,8 +23,13 @@ export const MyPage: React.FC = () => {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [newAddress, setNewAddress] = useState({ address: '', detail_address: '' });
 
+  const initRef = useRef(false);
+
   useEffect(() => {
     const init = async () => {
+      if (initRef.current) return;
+      initRef.current = true;
+
       // 1. Get current session
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -98,15 +103,15 @@ export const MyPage: React.FC = () => {
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 3) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+    if (digits.length <= 7) return `${digits.slice(0, 3)} -${digits.slice(3)} `;
+    return `${digits.slice(0, 3)} -${digits.slice(3, 7)} -${digits.slice(7)} `;
   };
 
   const formatBizNumber = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
     if (digits.length <= 3) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+    if (digits.length <= 5) return `${digits.slice(0, 3)} -${digits.slice(3)} `;
+    return `${digits.slice(0, 3)} -${digits.slice(3, 5)} -${digits.slice(5)} `;
   };
 
   const formatDateTime = (iso: string) => {
@@ -308,19 +313,19 @@ export const MyPage: React.FC = () => {
       <div className="flex gap-2 mb-6 border-b">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'profile'
-            ? 'text-blue-600 border-b-2 border-blue-600'
-            : 'text-gray-500 hover:text-gray-700'
-            }`}
+          className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'profile'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+            } `}
         >
           내 정보
         </button>
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'orders'
-            ? 'text-blue-600 border-b-2 border-blue-600'
-            : 'text-gray-500 hover:text-gray-700'
-            }`}
+          className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'orders'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+            } `}
         >
           주문 내역
         </button>
@@ -539,10 +544,10 @@ export const MyPage: React.FC = () => {
                 {addresses.map((addr) => (
                   <div
                     key={addr.id}
-                    className={`p-3 rounded border ${addr.is_main
-                      ? 'bg-blue-50 border-blue-300'
-                      : 'bg-gray-50 border-gray-200'
-                      }`}
+                    className={`p - 3 rounded border ${addr.is_main
+                        ? 'bg-blue-50 border-blue-300'
+                        : 'bg-gray-50 border-gray-200'
+                      } `}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -608,7 +613,7 @@ export const MyPage: React.FC = () => {
                       <div className="text-xs text-gray-400 mt-1">주문번호: {order.id}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
+                      <span className={`px - 2 py - 1 rounded - full text - xs font - semibold ${getStatusColor(order.status)} `}>
                         {getStatusLabel(order.status)}
                       </span>
                       <div className="text-xs text-gray-500 text-right">
