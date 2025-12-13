@@ -15,6 +15,12 @@ export const Manager: React.FC = () => {
     // --- Logistics State ---
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [logisticsDate, setLogisticsDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [viewMode, setViewMode] = useState<'today' | 'history'>('today');
+
+    // History Filters
+    const [historyStartDate, setHistoryStartDate] = useState('');
+    const [historyEndDate, setHistoryEndDate] = useState('');
+    const [historyStatus, setHistoryStatus] = useState<'ALL' | 'pending' | 'confirmed' | 'delivered' | 'cancelled'>('ALL');
 
     // --- Settlement State ---
     const [settlementSearch, setSettlementSearch] = useState('');
@@ -158,11 +164,58 @@ export const Manager: React.FC = () => {
     };
 
     // --- Helpers ---
+    const setHistoryRange = (range: '1W' | '1M' | '3M') => {
+        const end = new Date();
+        const start = new Date();
+        if (range === '1W') start.setDate(end.getDate() - 7);
+        if (range === '1M') start.setMonth(end.getMonth() - 1);
+        if (range === '3M') start.setMonth(end.getMonth() - 3);
+
+        setHistoryStartDate(start.toISOString().split('T')[0]);
+        setHistoryEndDate(end.toISOString().split('T')[0]);
+    };
+
     const getLogisticsOrders = () => {
-        return orders.filter(o =>
-            o.created_at.startsWith(logisticsDate) &&
-            o.status !== 'cancelled'
-        );
+        if (viewMode === 'today') {
+            // "Today" means the date selected in logisticsDate
+            // Range: Previous Day 09:01:00 ~ Target Day 09:00:00
+
+            if (!logisticsDate) return [];
+
+            const targetDate = new Date(logisticsDate); // Local midnight of selected date
+
+            // Cutoff End: Selected Date 09:00:00
+            const cutoffEnd = new Date(targetDate);
+            cutoffEnd.setHours(9, 0, 0, 0);
+
+            // Cutoff Start: Previous Date 09:01:00
+            const cutoffStart = new Date(cutoffEnd);
+            cutoffStart.setDate(cutoffStart.getDate() - 1);
+            cutoffStart.setHours(9, 1, 0, 0);
+
+            return orders.filter(o => {
+                const orderDate = new Date(o.created_at); // UTC to Local conversion
+                return orderDate >= cutoffStart && orderDate <= cutoffEnd && o.status !== 'cancelled';
+            });
+        } else {
+            // History Mode
+            return orders.filter(o => {
+                // Filter by Status
+                if (historyStatus !== 'ALL' && o.status !== historyStatus) return false;
+
+                // Filter by Date Range (Compare YYYY-MM-DD strings in local time)
+                const orderDate = new Date(o.created_at);
+                // Adjust to YYYY-MM-DD string in local time
+                const orderDateStr = orderDate.getFullYear() + '-' +
+                    String(orderDate.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(orderDate.getDate()).padStart(2, '0');
+
+                if (historyStartDate && orderDateStr < historyStartDate) return false;
+                if (historyEndDate && orderDateStr > historyEndDate) return false;
+
+                return true;
+            });
+        }
     };
 
     const getUnpaidOrders = () => {
@@ -231,26 +284,79 @@ export const Manager: React.FC = () => {
                 {/* ======================= LOGISTICS TAB ======================= */}
                 {activeTab === 'logistics' && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 print:shadow-none print:border-none">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 print:hidden">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="date"
-                                    value={logisticsDate}
-                                    onChange={(e) => setLogisticsDate(e.target.value)}
-                                    className="p-2 border rounded-lg shadow-sm"
-                                />
-                                <span className="text-gray-500 text-sm font-medium">배송 리스트</span>
-                            </div>
+
+                        {/* Toggle View Mode */}
+                        <div className="flex gap-4 mb-6 border-b pb-4 print:hidden">
+                            <button
+                                onClick={() => setViewMode('today')}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${viewMode === 'today' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                                <i className="fa-solid fa-calendar-day mr-2"></i>금일 배송 (9시 기준)
+                            </button>
+                            <button
+                                onClick={() => setViewMode('history')}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${viewMode === 'history' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                                <i className="fa-solid fa-list mr-2"></i>전체 주문 이력
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4 print:hidden">
+                            {viewMode === 'today' ? (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-gray-500">배송 기준일 선택</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="date"
+                                            value={logisticsDate}
+                                            onChange={(e) => setLogisticsDate(e.target.value)}
+                                            className="p-2 border rounded-lg shadow-sm font-medium"
+                                        />
+                                        <span className="text-gray-500 text-sm">오전 9시 마감</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-4 items-end">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-gray-500">기간 조회</label>
+                                        <div className="flex items-center gap-2">
+                                            <input type="date" value={historyStartDate} onChange={(e) => setHistoryStartDate(e.target.value)} className="p-2 border rounded text-sm w-32" />
+                                            <span className="text-gray-400">~</span>
+                                            <input type="date" value={historyEndDate} onChange={(e) => setHistoryEndDate(e.target.value)} className="p-2 border rounded text-sm w-32" />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                                        <button onClick={() => setHistoryRange('1W')} className="px-3 py-1.5 text-xs bg-white rounded shadow-sm hover:bg-gray-50">1주</button>
+                                        <button onClick={() => setHistoryRange('1M')} className="px-3 py-1.5 text-xs bg-white rounded shadow-sm hover:bg-gray-50">1개월</button>
+                                        <button onClick={() => setHistoryRange('3M')} className="px-3 py-1.5 text-xs bg-white rounded shadow-sm hover:bg-gray-50">3개월</button>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-gray-500">상태</label>
+                                        <select value={historyStatus} onChange={(e) => setHistoryStatus(e.target.value as any)} className="p-2 border rounded text-sm min-w-[100px]">
+                                            <option value="ALL">전체</option>
+                                            <option value="pending">접수대기</option>
+                                            <option value="confirmed">주문확정</option>
+                                            <option value="delivered">배송완료</option>
+                                            <option value="cancelled">취소</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex gap-2">
-                                <button onClick={handlePrintDeliveryList} className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm font-medium">
+                                <button onClick={handlePrintDeliveryList} className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm font-medium shadow-sm">
                                     <i className="fa-solid fa-print mr-2"></i>인쇄 / 엑셀
                                 </button>
-                                <button onClick={() => updateOrderStatusBatch('confirmed')} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-bold">
-                                    선택 주문확정
-                                </button>
-                                <button onClick={() => updateOrderStatusBatch('delivered')} className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-bold">
-                                    선택 배송완료
-                                </button>
+                                {viewMode === 'today' && (
+                                    <>
+                                        <button onClick={() => updateOrderStatusBatch('confirmed')} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-bold shadow-sm">
+                                            선택 주문확정
+                                        </button>
+                                        <button onClick={() => updateOrderStatusBatch('delivered')} className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-bold shadow-sm">
+                                            선택 배송완료
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -262,11 +368,12 @@ export const Manager: React.FC = () => {
                                             if (e.target.checked) setSelectedOrderIds(new Set(getLogisticsOrders().map(o => o.id)));
                                             else setSelectedOrderIds(new Set());
                                         }} /></th>
+                                        {viewMode === 'history' && <th className="px-4 py-3 text-left font-semibold text-gray-600">날짜 / 상태</th>}
                                         <th className="px-4 py-3 text-left font-semibold text-gray-600">업소명 / 연락처</th>
                                         <th className="px-4 py-3 text-left font-semibold text-gray-600">주소</th>
                                         <th className="px-4 py-3 text-left font-semibold text-gray-600 min-w-[200px]">주문 내역</th>
                                         <th className="px-4 py-3 text-left font-semibold text-gray-600">수량</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 print:hidden">상태</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 print:hidden">{viewMode === 'today' ? '상태' : ''}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
@@ -274,14 +381,26 @@ export const Manager: React.FC = () => {
                                         <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">해당 날짜의 주문이 없습니다.</td></tr>
                                     ) : (
                                         getLogisticsOrders().map(order => (
-                                            <tr key={order.id} className={`hover:bg-gray-50 ${selectedOrderIds.has(order.id) ? 'bg-blue-50' : ''}`}>
+                                            <tr key={order.id} className={`hover:bg-gray-50 transition ${selectedOrderIds.has(order.id) ? 'bg-blue-50' : ''} ${order.status === 'cancelled' ? 'opacity-60 bg-gray-50' : ''}`}>
                                                 <td className="px-4 py-3 print:hidden">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedOrderIds.has(order.id)}
                                                         onChange={() => toggleOrderSelection(order.id)}
+                                                        disabled={order.status === 'cancelled'}
                                                     />
                                                 </td>
+                                                {viewMode === 'history' && (
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <div className="text-gray-900 mb-1">{order.created_at.split('T')[0]}</div>
+                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-block ${order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                                                order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                                                                    order.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                                            }`}>
+                                                            {order.status === 'pending' ? '대기' : order.status === 'confirmed' ? '확정' : order.status === 'delivered' ? '완료' : '취소'}
+                                                        </span>
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-3">
                                                     <div className="font-bold text-gray-900">{(order as any).business_name}</div>
                                                     <div className="text-xs text-gray-500">{(order as any).phone || (order as any).user_phone}</div>
@@ -305,8 +424,8 @@ export const Manager: React.FC = () => {
                                                 <td className="px-4 py-3 font-semibold">{order.total_boxes}박스</td>
                                                 <td className="px-4 py-3 print:hidden">
                                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                                                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-yellow-100 text-yellow-700'
+                                                        order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-yellow-100 text-yellow-700'
                                                         }`}>
                                                         {order.status === 'pending' ? '대기' : order.status === 'confirmed' ? '확정' : '완료'}
                                                     </span>
