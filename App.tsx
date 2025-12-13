@@ -5,6 +5,7 @@ import { Landing } from './pages/Landing';
 import { Order } from './pages/Order';
 import { Apron } from './pages/Apron';
 import { Admin } from './pages/Admin';
+import { Manager } from './pages/Manager';
 import { MyPage } from './pages/MyPage';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
@@ -40,6 +41,7 @@ const App: React.FC = () => {
             <Route path="/order" element={<Order />} />
             <Route path="/apron" element={<Apron />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/manager" element={<Manager />} />
             <Route path="/mypage" element={<MyPage />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />

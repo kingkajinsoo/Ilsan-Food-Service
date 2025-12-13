@@ -7,7 +7,7 @@ export interface UserProfile {
   business_name_updated?: boolean;
   business_number_updated?: boolean;
   phone: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'manager';
   created_at: string;
   terms_agreed_at?: string | null;
   privacy_agreed_at?: string | null;
@@ -45,7 +45,7 @@ export interface Order {
   id: string;
   user_id: string;
   user_name?: string; // Joined view
-  business_name?: string; // Snapshot column (legacy orders might be null, so keep optional but conceptually it's a column now)
+  business_name?: string; // Snapshot column
   items: OrderItem[];
   total_amount: number;
   total_boxes: number;
@@ -53,6 +53,9 @@ export interface Order {
   delivery_address?: string;
   created_at: string;
   status: 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+  payment_method: 'credit' | 'card'; // Default 'credit'
+  payment_status: 'unpaid' | 'paid'; // Default 'unpaid'
+  paid_at?: string | null;
 }
 
 export interface ApronRequest {
@@ -65,5 +68,6 @@ export interface ApronRequest {
   delivery_address?: string; // Snapshot
   quantity: number;
   status: 'pending' | 'completed';
+  delivery_method?: 'driver' | 'staff'; // 'driver' = with beverage, 'staff' = direct delivery
   created_at: string;
 }

@@ -193,6 +193,11 @@ export const Navbar: React.FC = () => {
               <>
                 <Link to="/order" className="text-gray-700 hover:text-blue-600 font-medium">상품 주문</Link>
                 <Link to="/mypage" className="text-gray-700 hover:text-blue-600 font-medium">마이페이지</Link>
+                {(user.role === 'admin' || user.role === 'manager') && (
+                  <Link to="/manager" className="text-blue-600 font-bold hover:text-blue-800">
+                    <i className="fa-solid fa-user-tie mr-1"></i>매니저
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/admin" className="text-red-600 font-bold hover:text-red-800">관리자</Link>
                 )}
@@ -253,6 +258,11 @@ export const Navbar: React.FC = () => {
                 <MobileNavLink to="/mypage" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
                   마이페이지
                 </MobileNavLink>
+                {(user.role === 'admin' || user.role === 'manager') && (
+                  <MobileNavLink to="/manager" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
+                    매니저 대시보드
+                  </MobileNavLink>
+                )}
                 {isAdmin && (
                   <MobileNavLink to="/admin" currentPath={location.pathname} onClose={() => setIsOpen(false)}>
                     관리자 페이지
@@ -376,8 +386,8 @@ export const Navbar: React.FC = () => {
                   onClick={handleAgree}
                   disabled={!termsChecked || !privacyChecked}
                   className={`flex-1 py-3 rounded-lg font-semibold transition ${termsChecked && privacyChecked
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                 >
                   동의하고 시작하기
