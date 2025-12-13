@@ -315,11 +315,11 @@ export const Admin: React.FC = () => {
                               value={order.status}
                               onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                               className={`text-sm rounded-full px-3 py-1 font-semibold ${order.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
                                 }`}
                             >
                               <option value="pending">접수대기</option>
-                              <option value="confirmed">확인완료</option>
+                              <option value="confirmed">주문확정</option>
                               <option value="delivered">배송완료</option>
                               <option value="cancelled">취소</option>
                             </select>

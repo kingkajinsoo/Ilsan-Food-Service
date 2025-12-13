@@ -11,6 +11,16 @@ export const MyPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('profile');
 
+  // New: Filtering States
+  const today = new Date();
+  const lastMonth = new Date();
+  lastMonth.setMonth(today.getMonth() - 1);
+
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'pending' | 'confirmed' | 'delivered' | 'cancelled'>('ALL');
+  const [dateStart, setDateStart] = useState(lastMonth.toISOString().split('T')[0]);
+  const [dateEnd, setDateEnd] = useState(today.toISOString().split('T')[0]);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
   // Profile editing states
   const [editingPhone, setEditingPhone] = useState(false);
   const [editingBusinessName, setEditingBusinessName] = useState(false);
@@ -103,15 +113,15 @@ export const MyPage: React.FC = () => {
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 3) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 3)} -${digits.slice(3)} `;
-    return `${digits.slice(0, 3)} -${digits.slice(3, 7)} -${digits.slice(7)} `;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
   };
 
   const formatBizNumber = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
     if (digits.length <= 3) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 3)} -${digits.slice(3)} `;
-    return `${digits.slice(0, 3)} -${digits.slice(3, 5)} -${digits.slice(5)} `;
+    if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
   };
 
   const formatDateTime = (iso: string) => {
@@ -270,11 +280,11 @@ export const MyPage: React.FC = () => {
   const getStatusLabel = (status: Order['status']) => {
     switch (status) {
       case 'pending':
-        return '접수 대기';
+        return '접수대기';
       case 'confirmed':
-        return '확정';
+        return '주문확정';
       case 'delivered':
-        return '배송 완료';
+        return '배송완료';
       case 'cancelled':
         return '취소';
       default:
@@ -297,6 +307,19 @@ export const MyPage: React.FC = () => {
     }
   };
 
+  // Filter Logic
+  const filteredOrders = orders.filter(order => {
+    // 1. Status Filter
+    if (filterStatus !== 'ALL' && order.status !== filterStatus) return false;
+
+    // 2. Date Filter
+    // order.created_at is ISO string (e.g., 2025-05-10T...)
+    const orderDate = order.created_at.split('T')[0];
+    if (orderDate < dateStart || orderDate > dateEnd) return false;
+
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -306,26 +329,26 @@ export const MyPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 relative">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">마이페이지</h2>
 
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-6 border-b">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'profile'
+          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'profile'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'
-            } `}
+            }`}
         >
           내 정보
         </button>
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'orders'
+          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'orders'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'
-            } `}
+            }`}
         >
           주문 내역
         </button>
@@ -589,10 +612,10 @@ export const MyPage: React.FC = () => {
                 {addresses.map((addr) => (
                   <div
                     key={addr.id}
-                    className={`p - 3 rounded border ${addr.is_main
+                    className={`p-3 rounded border ${addr.is_main
                       ? 'bg-blue-50 border-blue-300'
                       : 'bg-gray-50 border-gray-200'
-                      } `}
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -639,23 +662,96 @@ export const MyPage: React.FC = () => {
         <div>
           <div className="mb-6 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-gray-700">
             <p className="font-semibold mb-1">내 주문 내역</p>
-            <p>언제, 어떤 상품을 주문했는지 한눈에 확인하실 수 있습니다.</p>
-            <p className="mt-1 text-xs text-gray-500">※ 실제 배송 상태는 롯데칠성 담당자 확인에 따라 변경될 수 있습니다.</p>
+            <p>다양한 필터를 사용하여 지난 주문 내역을 쉽게 확인하세요.</p>
           </div>
 
-          {orders.length === 0 ? (
+          {/* New: Status Filters */}
+          <div className="flex overflow-x-auto space-x-2 mb-4 pb-2">
+            {[
+              { id: 'ALL', label: '전체' },
+              { id: 'pending', label: '접수대기' },
+              { id: 'confirmed', label: '주문확정' },
+              { id: 'delivered', label: '배송완료' },
+              { id: 'cancelled', label: '취소' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setFilterStatus(tab.id as any)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${filterStatus === tab.id
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* New: Date Range Filters */}
+          <div className="flex flex-wrap items-end gap-3 mb-6 bg-white p-4 rounded-lg border border-gray-200">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">시작일</label>
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                className="p-2 border rounded text-sm"
+              />
+            </div>
+            <div className="self-center pb-2">~</div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">종료일</label>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
+                className="p-2 border rounded text-sm"
+              />
+            </div>
+            <div className="flex gap-1 pb-0.5">
+              <button
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 7);
+                  setDateStart(d.toISOString().split('T')[0]);
+                  setDateEnd(new Date().toISOString().split('T')[0]);
+                }}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+              >1주일</button>
+              <button
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 1);
+                  setDateStart(d.toISOString().split('T')[0]);
+                  setDateEnd(new Date().toISOString().split('T')[0]);
+                }}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+              >1개월</button>
+              <button
+                onClick={() => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 3);
+                  setDateStart(d.toISOString().split('T')[0]);
+                  setDateEnd(new Date().toISOString().split('T')[0]);
+                }}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+              >3개월</button>
+            </div>
+          </div>
+
+          {filteredOrders.length === 0 ? (
             <div className="bg-white border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
-              아직 주문 내역이 없습니다.
+              조건에 맞는 주문 내역이 없습니다.
             </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              {filteredOrders.map((order) => (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-pointer hover:border-blue-300 transition-colors" onClick={() => setSelectedOrder(order)}>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div>
                       <div className="text-xs text-gray-500">주문일시</div>
                       <div className="text-sm font-semibold text-gray-800">{formatDateTime(order.created_at)}</div>
-                      <div className="text-xs text-gray-400 mt-1">주문번호: {order.id}</div>
+                      <div className="text-xs text-gray-400 mt-1">주문번호: {order.id.slice(0, 8)}...</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
@@ -669,47 +765,34 @@ export const MyPage: React.FC = () => {
                   </div>
 
                   {('delivery_address' in (order as any)) && (order as any).delivery_address && (
-                    <div className="mt-3 text-xs text-gray-600">
+                    <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-2 rounded">
                       <span className="font-semibold mr-1">배송지:</span>
                       <span>{(order as any).delivery_address}</span>
                     </div>
                   )}
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {/* Simplified View in List */}
                     <div>
-                      <div className="font-semibold text-gray-800 mb-1">주문한 상품</div>
-                      <div className="space-y-1">
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-gray-700">
-                            <span>
-                              {item.productName} × {item.quantity}
-                            </span>
-                            <span className="font-medium">
-                              {(item.price * item.quantity).toLocaleString()}원
-                            </span>
-                          </div>
-                        ))}
+                      <div className="font-semibold text-gray-800 mb-1">
+                        {order.items.length > 0 ? order.items[0].productName : '상품 정보 없음'}
+                        {order.items.length > 1 ? ` 외 ${order.items.length - 1}건` : ''}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        총 {order.total_boxes} 박스 (서비스 포함)
                       </div>
                     </div>
-                    {order.service_items && order.service_items.length > 0 && (
-                      <div>
-                        <div className="font-semibold text-green-700 mb-1">서비스 상품</div>
-                        <div className="space-y-1">
-                          {order.service_items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs text-green-700">
-                              <span>
-                                {item.productName} × {item.quantity}
-                              </span>
-                              <span className="font-medium">0원 (3+1 행사분)</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Order Actions - Cancellation Logic */}
-                  <div className="mt-4 pt-3 border-t flex justify-end">
+                  {/* Order Actions */}
+                  <div className="mt-4 pt-3 border-t flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setSelectedOrder(order)}
+                      className="px-4 py-2 bg-white text-gray-600 text-sm font-medium rounded hover:bg-gray-50 border border-gray-300 transition-colors"
+                    >
+                      상세보기
+                    </button>
+
                     {order.status === 'pending' ? (
                       <button
                         onClick={async () => {
@@ -738,7 +821,7 @@ export const MyPage: React.FC = () => {
                         주문 취소
                       </button>
                     ) : order.status === 'cancelled' ? (
-                      <span className="text-gray-400 text-sm">취소된 주문입니다.</span>
+                      <span className="self-center text-xs text-gray-400 px-2">취소완료</span>
                     ) : (
                       <button
                         onClick={() => {
@@ -757,7 +840,110 @@ export const MyPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Order Detail Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => setSelectedOrder(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4 border-b pb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">주문 상세 정보</h3>
+                  <p className="text-sm text-gray-500 mt-1">{formatDateTime(selectedOrder.created_at)}</p>
+                </div>
+                <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600">
+                  {/* Close Icon */}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Status Section */}
+                <div>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(selectedOrder.status)}`}>
+                    {getStatusLabel(selectedOrder.status)}
+                  </span>
+                </div>
+
+                {/* Receiver Info */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-gray-700 mb-3 text-sm">주문자 정보</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">주문번호</span>
+                      <span className="font-mono text-gray-800">{selectedOrder.id}</span>
+                    </div>
+                    {(selectedOrder as any).business_name && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">업소명</span>
+                        <span className="text-gray-800 font-medium">{(selectedOrder as any).business_name}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">연락처</span>
+                      <span className="text-gray-800">{(selectedOrder as any).phone}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Info */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-gray-700 mb-3 text-sm">배송지 정보</h4>
+                  <p className="text-sm text-gray-800 break-words">
+                    {(selectedOrder as any).delivery_address}
+                  </p>
+                  {(selectedOrder as any).detail_address && (
+                    <p className="text-sm text-gray-600">{(selectedOrder as any).detail_address}</p>
+                  )}
+                </div>
+
+                {/* Items List */}
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-3 text-sm border-b pb-2">주문 상품</h4>
+                  <div className="space-y-3">
+                    {selectedOrder.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-gray-800">{item.productName}</span>
+                        <span className="font-medium text-gray-900">{item.quantity}박스</span>
+                      </div>
+                    ))}
+                    {selectedOrder.service_items && selectedOrder.service_items.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-dashed">
+                        <p className="text-xs text-blue-600 font-bold mb-2">서비스 상품 (무료)</p>
+                        {selectedOrder.service_items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm text-blue-600">
+                            <span>{item.productName}</span>
+                            <span>{item.quantity}박스</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="border-t pt-4 flex justify-between items-center">
+                  <span className="font-bold text-gray-700">총 결제 금액</span>
+                  <span className="text-xl font-bold text-blue-600">{selectedOrder.total_amount.toLocaleString()}원</span>
+                </div>
+
+              </div>
+
+              <div className="mt-8">
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
-
