@@ -115,6 +115,18 @@ export const Order: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // 0. Explicit Session Check (Force Refresh)
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data.session) {
+          throw new Error('Session invalid');
+        }
+      } catch (e) {
+        console.error('Session refresh failed on load:', e);
+        navigate('/'); // Redirect if session is dead on arrival
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
@@ -181,7 +193,7 @@ export const Order: React.FC = () => {
               .limit(1);
 
             if (apronError) {
-              console.error('Failed to check apron_requests for apron info', apronError);
+              console.error('Failed to check existing apron_requests for apron info', apronError);
             }
 
             const hasExistingApron = !!(apronData && apronData.length > 0);
@@ -386,40 +398,43 @@ export const Order: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidOrder || !user) return;
-    setLoading(true);
-    setProcessingStatus('주문 처리를 시작합니다...');
 
-    // 세션 유효성 재확인 (모바일 브라우저 호환성)
+    setLoading(true);
+    setProcessingStatus('로그인 연결 상태 확인 중...');
+
+    // 0. Session Check & Force Refresh (Fix for Mobile Freeze)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setLoading(false);
-        setModalState({
-          isOpen: true,
-          title: '로그인 필요',
-          message: '세션이 만료되었습니다. 다시 로그인해주세요.',
-          type: 'error',
-          onCloseAction: () => navigate('/')
-        });
-        return;
+      // Race: Refresh vs 5s Timeout (Prevent Infinite Hang)
+      const refreshPromise = supabase.auth.refreshSession();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+
+      const { data, error }: any = await Promise.race([refreshPromise, timeoutPromise]);
+
+      if (error || !data?.session) {
+        throw new Error('Session invalid');
       }
-    } catch (sessionError) {
-      console.error('Session check failed:', sessionError);
+    } catch (e) {
+      console.error('Session validation failed:', e);
       setLoading(false);
       setModalState({
         isOpen: true,
-        title: '연결 오류',
-        message: '서버 연결에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.',
-        type: 'error'
+        title: '로그인 만료',
+        message: '로그인 연결이 끊어졌습니다.\n보안을 위해 다시 로그인해주세요.',
+        type: 'error',
+        onCloseAction: () => {
+          navigate('/'); // Go back to login
+        }
       });
       return;
     }
+
+    setProcessingStatus('주문 처리를 시작합니다...');
 
     // Safety Timeout Promise (모바일 환경에서는 타임아웃 시간 늘림)
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const timeoutMs = isMobile ? 30000 : 15000;
 
-    const timeoutPromise = new Promise((_, reject) =>
+    const mainTimeoutPromise = new Promise((_, reject) =>
       setTimeout(
         () => reject(new Error('서버 응답이 지연되고 있습니다. 네트워크 연결을 확인해주세요.')),
         timeoutMs
@@ -428,37 +443,34 @@ export const Order: React.FC = () => {
 
     // Business Logic Promise
     const orderPromise = (async () => {
-      // 1. 이 주문에서 자동 앞치마 신청을 수행해야 하는지 다시 DB로 검증
+      // 1. Apron Check
       setProcessingStatus('1/5. 앞치마 혜택 확인 중...');
       let shouldCreateApron = false;
-      try {
-        const { data: existingOrders, error: orderCheckError } = await supabase
-          .from('orders')
+
+      const { data: existingOrders, error: orderCheckError } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (orderCheckError) {
+        console.error('Failed to check existing orders', orderCheckError);
+      } else {
+        const isFirstOrder = !existingOrders || existingOrders.length === 0;
+
+        const { data: existingApron, error: apronError } = await supabase
+          .from('apron_requests')
           .select('id')
           .eq('user_id', user.id)
-          .limit(1);
+          .limit(1)
+          .maybeSingle();
 
-        if (orderCheckError) {
-          console.error('Failed to check existing orders', orderCheckError);
-        } else {
-          const isFirstOrder = !existingOrders || existingOrders.length === 0;
-
-          const { data: existingApron, error: apronError } = await supabase
-            .from('apron_requests')
-            .select('id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-
-          if (apronError) {
-            console.error('Failed to check existing apron requests', apronError);
-          }
-
-          const hasExistingApron = !!existingApron;
-          shouldCreateApron = isFirstOrder && !hasExistingApron;
+        if (apronError) {
+          console.error('Failed to check existing apron requests', apronError);
         }
-      } catch (logicError) {
-        console.error('Apron auto-application logic failed', logicError);
+
+        const hasExistingApron = !!existingApron;
+        shouldCreateApron = isFirstOrder && !hasExistingApron;
       }
 
       // 1. Prepare Items
@@ -534,7 +546,9 @@ export const Order: React.FC = () => {
         status: 'pending',
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       // 4. 월별 무료 박스 사용량 업데이트
       if (serviceBoxesCount > 0) {
@@ -557,7 +571,7 @@ export const Order: React.FC = () => {
           );
 
         if (usageError) {
-          console.error('월별 사용량 업데이트 실패 (Critical for 3+1):', usageError);
+          console.error('월별 사용량 업데이트 실패:', usageError);
         }
       }
 
@@ -578,7 +592,7 @@ export const Order: React.FC = () => {
     })();
 
     try {
-      const result = await Promise.race([orderPromise, timeoutPromise]) as { shouldCreateApron: boolean };
+      const result = await Promise.race([orderPromise, mainTimeoutPromise]) as { shouldCreateApron: boolean };
 
       setProcessingStatus('완료!');
       setModalState({
@@ -601,7 +615,15 @@ export const Order: React.FC = () => {
       setModalState({
         isOpen: true,
         title: '주문 실패',
-        message: `주문 처리 중 오류가 발생했습니다.\n다시 시도해 주세요.\n(오류 내용: ${err.message || 'Unknown'})`,
+        message: (
+          <div className="text-left">
+            <p className="mb-2 font-bold">주문 처리 중 오류가 발생했습니다.</p>
+            <p className="mb-2 text-sm text-gray-600">다시 시도해 주세요.</p>
+            <div className="bg-gray-100 p-2 rounded text-xs font-mono max-h-32 overflow-y-auto">
+              <p className="text-red-600 font-bold mb-1">Error: {err.message || 'Unknown'}</p>
+            </div>
+          </div>
+        ),
         type: 'error',
       });
     } finally {

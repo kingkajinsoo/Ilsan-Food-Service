@@ -25,9 +25,21 @@ export const MyPage: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // 0. Explicit Session Check (Force Refresh)
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data.session) {
+          throw new Error('Session invalid');
+        }
+      } catch (e) {
+        console.error('Session refresh failed on load:', e);
+        alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+        navigate('/');
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        alert('로그인이 필요한 서비스입니다.');
         navigate('/');
         return;
       }
@@ -289,21 +301,19 @@ export const MyPage: React.FC = () => {
       <div className="flex gap-2 mb-6 border-b">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2 font-semibold transition-colors ${
-            activeTab === 'profile'
+          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'profile'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700'
-          }`}
+            }`}
         >
           내 정보
         </button>
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-4 py-2 font-semibold transition-colors ${
-            activeTab === 'orders'
+          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'orders'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700'
-          }`}
+            }`}
         >
           주문 내역
         </button>
@@ -522,11 +532,10 @@ export const MyPage: React.FC = () => {
                 {addresses.map((addr) => (
                   <div
                     key={addr.id}
-                    className={`p-3 rounded border ${
-                      addr.is_main
+                    className={`p-3 rounded border ${addr.is_main
                         ? 'bg-blue-50 border-blue-300'
                         : 'bg-gray-50 border-gray-200'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
