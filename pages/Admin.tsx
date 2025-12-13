@@ -57,7 +57,7 @@ export const Admin: React.FC = () => {
 
   // User Action Modal State
   const [showUserActionModal, setShowUserActionModal] = useState(false);
-  const [userActionType, setUserActionType] = useState<'EDIT' | 'DELETE' | null>(null);
+  const [userActionType, setUserActionType] = useState<'EDIT' | 'DELETE' | 'BLOCK' | null>(null);
   const [userActionTarget, setUserActionTarget] = useState<UserProfile | null>(null);
   const [userActionEmail, setUserActionEmail] = useState('');
 
@@ -297,16 +297,11 @@ export const Admin: React.FC = () => {
     setShowUserActionModal(true);
   };
 
-  const handleToggleBlock = async (user: UserProfile) => {
-    if (!confirm(user.is_blocked ? '차단을 해제하시겠습니까?' : '이 회원의 로그인을 차단하시겠습니까?')) return;
-
-    const newStatus = !user.is_blocked;
-    const { error } = await supabase.from('users').update({ is_blocked: newStatus }).eq('id', user.id);
-    if (error) {
-      alert('상태 변경 실패: ' + error.message);
-    } else {
-      setUsers(users.map(u => u.id === user.id ? { ...u, is_blocked: newStatus } : u));
-    }
+  const handleToggleBlock = (user: UserProfile) => {
+    setUserActionType('BLOCK');
+    setUserActionTarget(user);
+    setUserActionEmail('');
+    setShowUserActionModal(true);
   };
 
   const executeUserAction = async () => {
@@ -333,6 +328,14 @@ export const Admin: React.FC = () => {
       else {
         alert('회원 정보가 완전히 삭제되었습니다.');
         fetchUsers();
+      }
+    } else if (userActionType === 'BLOCK') {
+      const newStatus = !userActionTarget.is_blocked;
+      const { error } = await supabase.from('users').update({ is_blocked: newStatus }).eq('id', userActionTarget.id);
+      if (error) alert('상태 변경 실패: ' + error.message);
+      else {
+        alert(newStatus ? '회원이 차단되었습니다.' : '차단이 해제되었습니다.');
+        setUsers(users.map(u => u.id === userActionTarget.id ? { ...u, is_blocked: newStatus } : u));
       }
     }
     setShowUserActionModal(false);
@@ -928,17 +931,17 @@ export const Admin: React.FC = () => {
                   value={userActionEmail}
                   onChange={(e) => setUserActionEmail(e.target.value)}
                   placeholder="이메일을 입력하세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 outline-none text-center ${userActionType === 'DELETE' ? 'focus:ring-red-500' : userActionType === 'BLOCK' ? 'focus:ring-orange-500' : 'focus:ring-blue-500'}`}
                 />
                 <button
                   onClick={executeUserAction}
                   disabled={userActionEmail !== userActionTarget.email}
                   className={`w-full py-3 px-4 rounded-lg font-bold text-white transition-all ${userActionEmail === userActionTarget.email
-                    ? (userActionType === 'DELETE' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700')
+                    ? (userActionType === 'DELETE' ? 'bg-red-600 hover:bg-red-700' : userActionType === 'BLOCK' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700')
                     : 'bg-gray-300 cursor-not-allowed'
                     }`}
                 >
-                  {userActionType === 'DELETE' ? '삭제하기' : '수정하기'}
+                  {userActionType === 'DELETE' ? '삭제하기' : userActionType === 'BLOCK' ? (userActionTarget.is_blocked ? '해제하기' : '차단하기') : '수정하기'}
                 </button>
                 <button
                   onClick={() => setShowUserActionModal(false)}
