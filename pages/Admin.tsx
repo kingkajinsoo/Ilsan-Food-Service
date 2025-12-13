@@ -55,18 +55,20 @@ export const Admin: React.FC = () => {
   };
 
   const fetchOrders = async () => {
+    // Select business_name specifically from orders table as well
     const { data, error } = await supabase
       .from('orders')
       .select('*, users(name, business_name)')
       .order('created_at', { ascending: false });
-    
+
     if (error) console.error('Orders error:', error);
-    
+
     if (data) {
       const formatted = data.map((o: any) => ({
         ...o,
         user_name: o.users?.name,
-        business_name: o.users?.business_name
+        // Prioritize snapshot (o.business_name) -> Fallback to current profile (o.users.business_name)
+        business_name: o.business_name || o.users?.business_name
       }));
       setOrders(formatted);
     }
@@ -77,7 +79,7 @@ export const Admin: React.FC = () => {
       .from('apron_requests')
       .select('*, users(name, business_name)')
       .order('created_at', { ascending: false });
-      
+
     if (error) console.error('Aprons error:', error);
 
     if (data) {
@@ -217,7 +219,7 @@ export const Admin: React.FC = () => {
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">관리자 대시보드</h1>
-        
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
@@ -282,128 +284,127 @@ export const Admin: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {orders.length === 0 ? (
-                     <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">주문 내역이 없습니다.</td></tr>
+                    <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">주문 내역이 없습니다.</td></tr>
                   ) : (
-                  orders.map(order => (
-                    <React.Fragment key={order.id}>
-                      <tr
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <i className={`fa-solid fa-chevron-${expandedOrderId === order.id ? 'down' : 'right'} text-gray-400`}></i>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(order.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {order.business_name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                          {order.items.map((i: any) => `${i.productName} (${i.quantity})`).join(', ')}
-                          {order.service_items && order.service_items.length > 0 &&
-                            <span className="text-blue-600 ml-2">+ 서비스</span>
-                          }
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {order.total_boxes}박스
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className={`text-sm rounded-full px-3 py-1 font-semibold ${
-                              order.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            <option value="pending">접수대기</option>
-                            <option value="confirmed">확인완료</option>
-                            <option value="delivered">배송완료</option>
-                            <option value="cancelled">취소</option>
-                          </select>
-                        </td>
-                      </tr>
-                      {expandedOrderId === order.id && (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-4 bg-gray-50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {/* 주문 상품 상세 */}
-                              <div className="bg-white p-4 rounded-lg shadow-sm">
-                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                                  <i className="fa-solid fa-box mr-2 text-blue-600"></i>주문 상품
-                                </h4>
-                                <div className="space-y-2">
-                                  {order.items.map((item: any, idx: number) => (
-                                    <div key={idx} className="flex justify-between text-sm border-b pb-2">
-                                      <span className="text-gray-700">{item.productName}</span>
-                                      <span className="text-gray-900 font-medium">{item.quantity}박스 × {item.price.toLocaleString()}원</span>
-                                    </div>
-                                  ))}
-                                  {order.service_items && order.service_items.length > 0 && (
-                                    <>
-                                      <div className="border-t pt-2 mt-2">
-                                        <p className="text-xs text-blue-600 font-semibold mb-2">
-                                          <i className="fa-solid fa-gift mr-1"></i>서비스 상품 (무료)
-                                        </p>
-                                      </div>
-                                      {order.service_items.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between text-sm">
-                                          <span className="text-blue-600">{item.productName}</span>
-                                          <span className="text-blue-600 font-medium">{item.quantity}박스 (무료)</span>
-                                        </div>
-                                      ))}
-                                    </>
-                                  )}
-                                  <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-                                    <span>총 수량</span>
-                                    <span className="text-blue-600">{order.total_boxes}박스</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 배송 및 연락처 정보 */}
-                              <div className="bg-white p-4 rounded-lg shadow-sm">
-                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                                  <i className="fa-solid fa-truck mr-2 text-green-600"></i>배송 정보
-                                </h4>
-                                <div className="space-y-3 text-sm">
-                                  <div>
-                                    <p className="text-gray-500 text-xs mb-1">업소명</p>
-                                    <p className="text-gray-900 font-medium">{order.business_name}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-500 text-xs mb-1">배송지 주소</p>
-                                    <p className="text-gray-900">{order.delivery_address}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-500 text-xs mb-1">연락처</p>
-                                    <p className="text-gray-900">{order.phone || '-'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-500 text-xs mb-1">사업자등록번호</p>
-                                    <p className="text-gray-900">{order.business_number || '-'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-500 text-xs mb-1">주문 시간</p>
-                                    <p className="text-gray-900">
-                                      {new Date(order.created_at).toLocaleString('ko-KR', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                    orders.map(order => (
+                      <React.Fragment key={order.id}>
+                        <tr
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <i className={`fa-solid fa-chevron-${expandedOrderId === order.id ? 'down' : 'right'} text-gray-400`}></i>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(order.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {order.business_name}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                            {order.items.map((i: any) => `${i.productName} (${i.quantity})`).join(', ')}
+                            {order.service_items && order.service_items.length > 0 &&
+                              <span className="text-blue-600 ml-2">+ 서비스</span>
+                            }
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {order.total_boxes}박스
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={order.status}
+                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                              className={`text-sm rounded-full px-3 py-1 font-semibold ${order.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                                }`}
+                            >
+                              <option value="pending">접수대기</option>
+                              <option value="confirmed">확인완료</option>
+                              <option value="delivered">배송완료</option>
+                              <option value="cancelled">취소</option>
+                            </select>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  )))}
+                        {expandedOrderId === order.id && (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* 주문 상품 상세 */}
+                                <div className="bg-white p-4 rounded-lg shadow-sm">
+                                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                    <i className="fa-solid fa-box mr-2 text-blue-600"></i>주문 상품
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {order.items.map((item: any, idx: number) => (
+                                      <div key={idx} className="flex justify-between text-sm border-b pb-2">
+                                        <span className="text-gray-700">{item.productName}</span>
+                                        <span className="text-gray-900 font-medium">{item.quantity}박스 × {item.price.toLocaleString()}원</span>
+                                      </div>
+                                    ))}
+                                    {order.service_items && order.service_items.length > 0 && (
+                                      <>
+                                        <div className="border-t pt-2 mt-2">
+                                          <p className="text-xs text-blue-600 font-semibold mb-2">
+                                            <i className="fa-solid fa-gift mr-1"></i>서비스 상품 (무료)
+                                          </p>
+                                        </div>
+                                        {order.service_items.map((item: any, idx: number) => (
+                                          <div key={idx} className="flex justify-between text-sm">
+                                            <span className="text-blue-600">{item.productName}</span>
+                                            <span className="text-blue-600 font-medium">{item.quantity}박스 (무료)</span>
+                                          </div>
+                                        ))}
+                                      </>
+                                    )}
+                                    <div className="border-t pt-2 mt-2 flex justify-between font-bold">
+                                      <span>총 수량</span>
+                                      <span className="text-blue-600">{order.total_boxes}박스</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 배송 및 연락처 정보 */}
+                                <div className="bg-white p-4 rounded-lg shadow-sm">
+                                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                    <i className="fa-solid fa-truck mr-2 text-green-600"></i>배송 정보
+                                  </h4>
+                                  <div className="space-y-3 text-sm">
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-1">업소명</p>
+                                      <p className="text-gray-900 font-medium">{order.business_name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-1">배송지 주소</p>
+                                      <p className="text-gray-900">{order.delivery_address}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-1">연락처</p>
+                                      <p className="text-gray-900">{order.phone || '-'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-1">사업자등록번호</p>
+                                      <p className="text-gray-900">{order.business_number || '-'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-1">주문 시간</p>
+                                      <p className="text-gray-900">
+                                        {new Date(order.created_at).toLocaleString('ko-KR', {
+                                          year: 'numeric',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )))}
                 </tbody>
               </table>
             )}
@@ -420,37 +421,36 @@ export const Admin: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {aprons.length === 0 ? (
-                     <tr><td colSpan={4} className="px-6 py-4 text-center text-gray-500">앞치마 신청 내역이 없습니다.</td></tr>
+                    <tr><td colSpan={4} className="px-6 py-4 text-center text-gray-500">앞치마 신청 내역이 없습니다.</td></tr>
                   ) : (
-                  aprons.map(req => (
-                    <tr key={req.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(req.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {req.business_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {req.quantity}장
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                         <select 
-                          value={req.status}
-                          onChange={(e) => updateApronStatus(req.id, e.target.value)}
-                          className={`text-sm rounded-full px-3 py-1 font-semibold ${
-                            req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          <option value="pending">접수</option>
-                          <option value="completed">발송완료</option>
-                        </select>
-                      </td>
-                    </tr>
-                  )))}
+                    aprons.map(req => (
+                      <tr key={req.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(req.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {req.business_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {req.quantity}장
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={req.status}
+                            onChange={(e) => updateApronStatus(req.id, e.target.value)}
+                            className={`text-sm rounded-full px-3 py-1 font-semibold ${req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}
+                          >
+                            <option value="pending">접수</option>
+                            <option value="completed">발송완료</option>
+                          </select>
+                        </td>
+                      </tr>
+                    )))}
                 </tbody>
               </table>
             )}
-            
+
             {activeTab === 'users' && (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -464,31 +464,31 @@ export const Admin: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                   {users.length === 0 ? (
-                     <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">회원 내역이 없습니다.</td></tr>
+                  {users.length === 0 ? (
+                    <tr><td colSpan={6} className="px-6 py-4 text-center text-gray-500">회원 내역이 없습니다.</td></tr>
                   ) : (
-                  users.map(u => (
-                    <tr key={u.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {u.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {u.email || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {u.business_name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}
-                      </td>
-                    </tr>
-                  )))}
+                    users.map(u => (
+                      <tr key={u.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {u.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {u.email || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.business_name || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}
+                        </td>
+                      </tr>
+                    )))}
                 </tbody>
               </table>
             )}

@@ -44,7 +44,7 @@ export interface Order {
   id: string;
   user_id: string;
   user_name?: string; // Joined view
-  business_name?: string; // Joined view
+  business_name?: string; // Snapshot column (legacy orders might be null, so keep optional but conceptually it's a column now)
   items: OrderItem[];
   total_amount: number;
   total_boxes: number;

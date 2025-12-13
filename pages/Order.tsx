@@ -495,13 +495,11 @@ export const Order: React.FC = () => {
       const newBizNumberRaw = formData.businessNumber.replace(/\D/g, '');
 
       const shouldUpdateUser =
-        user.business_name !== formData.business_name ||
         user.phone !== formData.phone ||
         (supportsBizNumber && currentBizNumberRaw !== newBizNumberRaw);
 
       if (shouldUpdateUser) {
         const updatePayload: any = {
-          business_name: formData.business_name,
           phone: formData.phone,
         };
         if (supportsBizNumber) {
@@ -532,6 +530,7 @@ export const Order: React.FC = () => {
         delivery_address: fullAddress,
         phone: formData.phone,
         business_number: formData.businessNumber,
+        business_name: formData.business_name, // Snapshot the business name at time of order
         status: 'pending',
       });
 
@@ -902,10 +901,11 @@ export const Order: React.FC = () => {
                   type="text"
                   placeholder="업소명 (상호)"
                   required
-                  className="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  readOnly
+                  className="w-full p-2 border rounded text-sm bg-green-50 border-green-500 text-gray-700 cursor-not-allowed focus:outline-none"
                   value={formData.business_name}
-                  onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
                 />
+                <p className="text-gray-500 text-xs mt-1">※ 상호명은 '마이페이지 &gt; 내 정보'에서 수정 가능합니다.</p>
               </div>
 
               {/* 사업자등록번호 */}
