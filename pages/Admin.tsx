@@ -351,6 +351,36 @@ export const Admin: React.FC = () => {
     setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
   };
 
+  const handleBatchConfirm = async () => {
+    // 1. Get currently filtered orders that are 'pending'
+    const currentList = getFilteredOrders();
+    const pendingOrders = currentList.filter(o => o.status === 'pending');
+
+    if (pendingOrders.length === 0) {
+      alert('현재 목록에 "접수대기" 상태인 주문이 없습니다.');
+      return;
+    }
+
+    // 2. Safety Confirmation
+    if (!confirm(`총 ${pendingOrders.length}건의 "접수대기" 주문을\n모두 "주문확정"으로 변경하시겠습니까?`)) {
+      return;
+    }
+
+    // 3. Batch Update
+    const pendingIds = pendingOrders.map(o => o.id);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'confirmed' })
+      .in('id', pendingIds);
+
+    if (error) {
+      alert('일괄 처리 중 오류가 발생했습니다: ' + error.message);
+    } else {
+      alert('일괄 처리가 완료되었습니다.');
+      fetchOrders(); // Refresh list
+    }
+  };
+
   const handleAddNewClick = () => {
     setEditingProductId(null); // Close any open edit types
     setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
@@ -532,7 +562,8 @@ export const Admin: React.FC = () => {
                       <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                     </div>
                   </div>
-                  <button onClick={() => { setOrderSearchKeyword(''); setOrderStatusFilter('ALL'); const t = new Date(); const l = new Date(); l.setMonth(t.getMonth() - 1); setOrderDateStart(l.toISOString().split('T')[0]); setOrderDateEnd(t.toISOString().split('T')[0]); }} className="px-3 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm">초기화</button>
+                  <button onClick={handleBatchConfirm} className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-bold shadow-sm whitespace-nowrap">접수대기 일괄 확정</button>
+                  <button onClick={() => { setOrderSearchKeyword(''); setOrderStatusFilter('ALL'); const t = new Date(); const l = new Date(); l.setMonth(t.getMonth() - 1); setOrderDateStart(l.toISOString().split('T')[0]); setOrderDateEnd(t.toISOString().split('T')[0]); }} className="px-3 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm whitespace-nowrap">초기화</button>
                 </div>
 
                 <div className="overflow-x-auto">
