@@ -25,17 +25,22 @@ export const MyPage: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 0. Explicit Session Check (Force Refresh)
+      // 0. Explicit Session Check (Force Refresh) - Throttled
       try {
-        const { data, error } = await supabase.auth.refreshSession();
-        if (error || !data.session) {
-          throw new Error('Session invalid');
+        const lastCheck = sessionStorage.getItem('last_auth_refresh');
+        const now = Date.now();
+        if (!lastCheck || now - parseInt(lastCheck) > 60000) {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (error && !data.session) {
+            console.warn('Refresh warning:', error);
+          }
+          sessionStorage.setItem('last_auth_refresh', now.toString());
         }
       } catch (e) {
         console.error('Session refresh failed on load:', e);
-        alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
-        navigate('/');
-        return;
+        // alert('로그인이 만료되었습니다. 다시 로그인해주세요.'); // Don't alert here to avoid spamming alerts in loops
+        // navigate('/');
+        // return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -302,8 +307,8 @@ export const MyPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('profile')}
           className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'profile'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           내 정보
@@ -311,8 +316,8 @@ export const MyPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('orders')}
           className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'orders'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           주문 내역
@@ -533,8 +538,8 @@ export const MyPage: React.FC = () => {
                   <div
                     key={addr.id}
                     className={`p-3 rounded border ${addr.is_main
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'bg-gray-50 border-gray-200'
+                      ? 'bg-blue-50 border-blue-300'
+                      : 'bg-gray-50 border-gray-200'
                       }`}
                   >
                     <div className="flex items-start justify-between">

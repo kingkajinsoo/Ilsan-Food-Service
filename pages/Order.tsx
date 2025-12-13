@@ -115,16 +115,23 @@ export const Order: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 0. Explicit Session Check (Force Refresh)
+      // 0. Explicit Session Check (Force Refresh) - Throttled
       try {
-        const { data, error } = await supabase.auth.refreshSession();
-        if (error || !data.session) {
-          throw new Error('Session invalid');
+        const lastCheck = sessionStorage.getItem('last_auth_refresh');
+        const now = Date.now();
+        // Only refresh if more than 60 seconds passed since last check to prevent loops
+        if (!lastCheck || now - parseInt(lastCheck) > 60000) {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (error && !data.session) { // Only throw if truly failed and no session
+            // If error but session exists (e.g. network blip), might be okay to proceed? 
+            // Safest is to rely on getSession below.
+            console.warn('Refresh warning:', error);
+          }
+          sessionStorage.setItem('last_auth_refresh', now.toString());
         }
       } catch (e) {
         console.error('Session refresh failed on load:', e);
-        navigate('/'); // Redirect if session is dead on arrival
-        return;
+        // Don't redirect immediately on minor errors, let getSession decide
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -207,7 +214,11 @@ export const Order: React.FC = () => {
       }
 
       // Fetch products from database
-      const { data: productsData } = await supabase.from('products').select('*');
+      const { data: productsData, error: productsError } = await supabase.from('products').select('*');
+      if (productsError) {
+        console.error('Failed to load products:', productsError);
+        // Maybe show an alert or set empty?
+      }
       if (productsData) {
         // Custom sort: 칠성사이다 → 펩시 → 기타
         const sortedProducts = (productsData as Product[]).sort((a, b) => {
