@@ -36,8 +36,8 @@ export const Admin: React.FC = () => {
   const [productSearchKeyword, setProductSearchKeyword] = useState('');
 
   // Product form state
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showProductForm, setShowProductForm] = useState(false); // Used for "Add New"
+  const [editingProductId, setEditingProductId] = useState<string | null>(null); // Used for Inline Edit
   const [productForm, setProductForm] = useState({
     name: '',
     price: 0,
@@ -45,6 +45,12 @@ export const Admin: React.FC = () => {
     image: '',
     is_pepsi_family: false
   });
+
+  // Delete Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState('');
+
 
   useEffect(() => {
     // Set default date range (this month)
@@ -160,7 +166,7 @@ export const Admin: React.FC = () => {
   // Product CRUD
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProduct) {
+    if (editingProductId) {
       const { error } = await supabase.from('products').update({
         name: productForm.name,
         price: productForm.price,
@@ -168,7 +174,7 @@ export const Admin: React.FC = () => {
         image: productForm.image || null,
         is_pepsi_family: productForm.is_pepsi_family,
         updated_at: new Date().toISOString()
-      }).eq('id', editingProduct.id);
+      }).eq('id', editingProductId);
       if (error) { alert('상품 수정 실패: ' + error.message); return; }
       alert('상품이 수정되었습니다.');
     } else {
@@ -183,13 +189,23 @@ export const Admin: React.FC = () => {
       alert('상품이 추가되었습니다.');
     }
     setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
-    setEditingProduct(null);
+    setEditingProductId(null);
     setShowProductForm(false);
     fetchProducts();
   };
 
   const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
+    if (editingProductId === product.id) {
+      // Close if already open
+      setEditingProductId(null);
+      setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
+      return;
+    }
+
+    // Close "Add New" if open
+    setShowProductForm(false);
+
+    setEditingProductId(product.id);
     setProductForm({
       name: product.name,
       price: product.price,
@@ -197,27 +213,42 @@ export const Admin: React.FC = () => {
       image: product.image || '',
       is_pepsi_family: product.is_pepsi_family
     });
-    setShowProductForm(true);
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!confirm('정말 이 상품을 삭제하시겠습니까?')) return;
-    const { error } = await supabase.from('products').delete().eq('id', id);
+  const initiateDeleteProduct = (product: Product) => {
+    setProductToDelete(product);
+    setDeleteConfirmationName('');
+    setShowDeleteModal(true);
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    if (deleteConfirmationName !== productToDelete.name) return;
+
+    const { error } = await supabase.from('products').delete().eq('id', productToDelete.id);
     if (error) alert('상품 삭제 실패: ' + error.message);
     else {
       alert('상품이 삭제되었습니다.');
       fetchProducts();
     }
+    setShowDeleteModal(false);
+    setProductToDelete(null);
+    setDeleteConfirmationName('');
   };
 
   const handleCancelProductForm = () => {
     setShowProductForm(false);
-    setEditingProduct(null);
+    setEditingProductId(null);
     setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
   };
 
-  // --- Filtering Logic ---
+  const handleAddNewClick = () => {
+    setEditingProductId(null); // Close any open edit types
+    setProductForm({ name: '', price: 0, category: 'CAN', image: '', is_pepsi_family: false });
+    setShowProductForm(true);
+  }
 
+  // --- Filtering Logic ---
   const getFilteredOrders = () => {
     return orders.filter(order => {
       // 1. Date Range
@@ -294,13 +325,8 @@ export const Admin: React.FC = () => {
 
   const getFilteredProducts = () => {
     return products.filter(product => {
-      // 1. Category
       if (productCategoryFilter !== 'ALL' && product.category !== productCategoryFilter) return false;
-
-      // 2. Pepsi Family
       if (productPepsiFilter === 'PEPSI_ONLY' && !product.is_pepsi_family) return false;
-
-      // 3. Keyword
       if (productSearchKeyword) {
         if (!product.name.toLowerCase().includes(productSearchKeyword.toLowerCase())) return false;
       }
@@ -341,15 +367,15 @@ export const Admin: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg border-gray-100 overflow-hidden">
           <div className="flex border-b overflow-x-auto">
             {['orders', 'aprons', 'users', 'products'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
                 className={`flex-1 py-4 font-medium whitespace-nowrap transition-colors ${activeTab === tab
-                    ? `bg-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-50 text-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-600 border-b-2 border-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-600`
-                    : 'text-gray-500 hover:text-gray-700'
+                  ? `bg-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-50 text-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-600 border-b-2 border-${tab === 'orders' ? 'blue' : tab === 'aprons' ? 'orange' : tab === 'users' ? 'green' : 'purple'}-600`
+                  : 'text-gray-500 hover:text-gray-700'
                   }`}
               >
                 {tab === 'orders' && '주문 관리'}
@@ -366,34 +392,18 @@ export const Admin: React.FC = () => {
             {activeTab === 'orders' && (
               <div>
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
-                  {/* Date Filter */}
+                  {/* ... Order filters (Same as before) ... */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={orderDateStart}
-                        onChange={(e) => setOrderDateStart(e.target.value)}
-                        className="p-2 border rounded text-sm"
-                      />
+                      <input type="date" value={orderDateStart} onChange={(e) => setOrderDateStart(e.target.value)} className="p-2 border rounded text-sm" />
                       <span className="text-gray-400">~</span>
-                      <input
-                        type="date"
-                        value={orderDateEnd}
-                        onChange={(e) => setOrderDateEnd(e.target.value)}
-                        className="p-2 border rounded text-sm"
-                      />
+                      <input type="date" value={orderDateEnd} onChange={(e) => setOrderDateEnd(e.target.value)} className="p-2 border rounded text-sm" />
                     </div>
                   </div>
-
-                  {/* Status Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">상태 필터</label>
-                    <select
-                      value={orderStatusFilter}
-                      onChange={(e) => setOrderStatusFilter(e.target.value as any)}
-                      className="p-2 border rounded text-sm w-32"
-                    >
+                    <select value={orderStatusFilter} onChange={(e) => setOrderStatusFilter(e.target.value as any)} className="p-2 border rounded text-sm w-32">
                       <option value="ALL">전체</option>
                       <option value="pending">접수대기</option>
                       <option value="confirmed">주문확정</option>
@@ -401,37 +411,14 @@ export const Admin: React.FC = () => {
                       <option value="cancelled">취소</option>
                     </select>
                   </div>
-
-                  {/* Search */}
                   <div className="flex-1 min-w-[200px]">
                     <label className="block text-xs font-medium text-gray-500 mb-1">통합 검색 (업소명, 주문자, 연락처)</label>
                     <div className="relative">
-                      <input
-                        type="text"
-                        value={orderSearchKeyword}
-                        onChange={(e) => setOrderSearchKeyword(e.target.value)}
-                        placeholder="검색어를 입력하세요..."
-                        className="w-full p-2 pl-8 border rounded text-sm"
-                      />
+                      <input type="text" value={orderSearchKeyword} onChange={(e) => setOrderSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" />
                       <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                     </div>
                   </div>
-
-                  {/* Reset Button */}
-                  <button
-                    onClick={() => {
-                      setOrderSearchKeyword('');
-                      setOrderStatusFilter('ALL');
-                      const today = new Date();
-                      const lastMonth = new Date();
-                      lastMonth.setMonth(today.getMonth() - 1);
-                      setOrderDateStart(lastMonth.toISOString().split('T')[0]);
-                      setOrderDateEnd(today.toISOString().split('T')[0]);
-                    }}
-                    className="px-3 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm"
-                  >
-                    초기화
-                  </button>
+                  <button onClick={() => { setOrderSearchKeyword(''); setOrderStatusFilter('ALL'); const t = new Date(); const l = new Date(); l.setMonth(t.getMonth() - 1); setOrderDateStart(l.toISOString().split('T')[0]); setOrderDateEnd(t.toISOString().split('T')[0]); }} className="px-3 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm">초기화</button>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -456,32 +443,14 @@ export const Admin: React.FC = () => {
                               className="hover:bg-gray-50 cursor-pointer transition-colors"
                               onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                             >
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <i className={`fa-solid fa-chevron-${expandedOrderId === order.id ? 'down' : 'right'} text-gray-400`}></i>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {new Date(order.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {(order as any).business_name}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                                {order.items.map((i: any) => `${i.productName}`).join(', ')}
-                                {order.items.length > 1 && ` 외 ${order.items.length - 1}건`}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {order.total_boxes}박스
-                              </td>
+                              {/* ... Order Row Content (Same as before) ... */}
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><i className={`fa-solid fa-chevron-${expandedOrderId === order.id ? 'down' : 'right'} text-gray-400`}></i></td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(order as any).business_name}</td>
+                              <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{order.items.map((i: any) => `${i.productName}`).join(', ')} {order.items.length > 1 && ` 외 ${order.items.length - 1}건`}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.total_boxes}박스</td>
                               <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={order.status}
-                                  onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                  className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-blue-500 ${order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                      order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                        'bg-red-100 text-red-800'
-                                    }`}
-                                >
+                                <select value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-blue-500 ${order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : order.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                   <option value="pending">접수대기</option>
                                   <option value="confirmed">주문확정</option>
                                   <option value="delivered">배송완료</option>
@@ -492,66 +461,22 @@ export const Admin: React.FC = () => {
                             {expandedOrderId === order.id && (
                               <tr className="bg-gray-50">
                                 <td colSpan={6} className="px-6 py-6">
+                                  {/* ... Expanded Order Detail (Same as before) ... */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                                    {/* Order Details */}
                                     <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                                      <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b flex items-center">
-                                        <i className="fa-solid fa-cart-shopping mr-2 text-blue-600"></i>주문 상세
-                                      </h4>
+                                      <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b flex items-center"><i className="fa-solid fa-cart-shopping mr-2 text-blue-600"></i>주문 상세</h4>
                                       <div className="space-y-3">
-                                        {order.items.map((item: any, idx: number) => (
-                                          <div key={idx} className="flex justify-between text-sm">
-                                            <span className="text-gray-700">{item.productName}</span>
-                                            <span className="font-medium">{item.quantity}박스 × {item.price.toLocaleString()}원</span>
-                                          </div>
-                                        ))}
-                                        {order.service_items && order.service_items.length > 0 && (
-                                          <div className="bg-blue-50 p-3 rounded mt-2">
-                                            <p className="text-xs text-blue-700 font-bold mb-2">🎁 서비스 상품 (3+1)</p>
-                                            {order.service_items.map((item: any, idx: number) => (
-                                              <div key={idx} className="flex justify-between text-sm text-blue-600">
-                                                <span>{item.productName}</span>
-                                                <span>{item.quantity}박스</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                        <div className="border-t pt-3 mt-2 flex justify-between items-center">
-                                          <span className="font-bold text-gray-700">총 합계</span>
-                                          <div className="text-right">
-                                            <div className="text-xl font-bold text-blue-600">{order.total_amount.toLocaleString()}원</div>
-                                            <div className="text-xs text-gray-500">총 {order.total_boxes}박스</div>
-                                          </div>
-                                        </div>
+                                        {order.items.map((item: any, idx: number) => (<div key={idx} className="flex justify-between text-sm"><span className="text-gray-700">{item.productName}</span><span className="font-medium">{item.quantity}박스 × {item.price.toLocaleString()}원</span></div>))}
+                                        {order.service_items && order.service_items.length > 0 && (<div className="bg-blue-50 p-3 rounded mt-2"><p className="text-xs text-blue-700 font-bold mb-2">🎁 서비스 상품 (3+1)</p>{order.service_items.map((item: any, idx: number) => (<div key={idx} className="flex justify-between text-sm text-blue-600"><span>{item.productName}</span><span>{item.quantity}박스</span></div>))}</div>)}
+                                        <div className="border-t pt-3 mt-2 flex justify-between items-center"><span className="font-bold text-gray-700">총 합계</span><div className="text-right"><div className="text-xl font-bold text-blue-600">{order.total_amount.toLocaleString()}원</div><div className="text-xs text-gray-500">총 {order.total_boxes}박스</div></div></div>
                                       </div>
                                     </div>
-
-                                    {/* Delivery Info */}
                                     <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                                      <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b flex items-center">
-                                        <i className="fa-solid fa-truck mr-2 text-green-600"></i>배송 정보
-                                      </h4>
+                                      <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b flex items-center"><i className="fa-solid fa-truck mr-2 text-green-600"></i>배송 정보</h4>
                                       <div className="space-y-4 text-sm">
-                                        <div>
-                                          <span className="block text-xs text-gray-500 mb-1">업소명 / 사업자번호</span>
-                                          <div className="font-medium text-gray-900">
-                                            {(order as any).business_name}
-                                            <span className="text-gray-400 font-normal ml-2">
-                                              {(order as any).business_number ? (order as any).business_number : '(미등록)'}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div>
-                                          <span className="block text-xs text-gray-500 mb-1">연락처</span>
-                                          <div className="font-medium text-gray-900">{(order as any).phone || (order as any).user_phone || '-'}</div>
-                                        </div>
-                                        <div>
-                                          <span className="block text-xs text-gray-500 mb-1">배송지</span>
-                                          <div className="font-medium text-gray-900 leading-relaxed">
-                                            {(order as any).delivery_address}
-                                            {(order as any).detail_address && <span className="block text-gray-600">{(order as any).detail_address}</span>}
-                                          </div>
-                                        </div>
+                                        <div><span className="block text-xs text-gray-500 mb-1">업소명 / 사업자번호</span><div className="font-medium text-gray-900">{(order as any).business_name} <span className="text-gray-400 font-normal ml-2">{(order as any).business_number ? (order as any).business_number : '(미등록)'}</span></div></div>
+                                        <div><span className="block text-xs text-gray-500 mb-1">연락처</span><div className="font-medium text-gray-900">{(order as any).phone || (order as any).user_phone || '-'}</div></div>
+                                        <div><span className="block text-xs text-gray-500 mb-1">배송지</span><div className="font-medium text-gray-900 leading-relaxed">{(order as any).delivery_address}{(order as any).detail_address && <span className="block text-gray-600">{(order as any).detail_address}</span>}</div></div>
                                       </div>
                                     </div>
                                   </div>
@@ -567,161 +492,32 @@ export const Admin: React.FC = () => {
               </div>
             )}
 
-            {/* 2. APRON REQUESTS */}
+            {/* 2. APRON REQUESTS (Unchanged) */}
             {activeTab === 'aprons' && (
               <div>
+                {/* ... Apron content (Same as before) ... */}
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
-                  {/* Date Filter */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={apronDateStart}
-                        onChange={(e) => setApronDateStart(e.target.value)}
-                        className="p-2 border rounded text-sm"
-                      />
-                      <span className="text-gray-400">~</span>
-                      <input
-                        type="date"
-                        value={apronDateEnd}
-                        onChange={(e) => setApronDateEnd(e.target.value)}
-                        className="p-2 border rounded text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">상태 필터</label>
-                    <select
-                      value={apronStatusFilter}
-                      onChange={(e) => setApronStatusFilter(e.target.value as any)}
-                      className="p-2 border rounded text-sm w-32"
-                    >
-                      <option value="ALL">전체</option>
-                      <option value="pending">접수</option>
-                      <option value="completed">발송완료</option>
-                    </select>
-                  </div>
-
-                  {/* Search */}
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">통합 검색 (업소명, 신청자)</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={apronSearchKeyword}
-                        onChange={(e) => setApronSearchKeyword(e.target.value)}
-                        placeholder="검색어를 입력하세요..."
-                        className="w-full p-2 pl-8 border rounded text-sm"
-                      />
-                      <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
-                    </div>
-                  </div>
+                  <div><label className="block text-xs font-medium text-gray-500 mb-1">기간 조회</label><div className="flex items-center gap-2"><input type="date" value={apronDateStart} onChange={(e) => setApronDateStart(e.target.value)} className="p-2 border rounded text-sm" /><span className="text-gray-400">~</span><input type="date" value={apronDateEnd} onChange={(e) => setApronDateEnd(e.target.value)} className="p-2 border rounded text-sm" /></div></div>
+                  <div><label className="block text-xs font-medium text-gray-500 mb-1">상태 필터</label><select value={apronStatusFilter} onChange={(e) => setApronStatusFilter(e.target.value as any)} className="p-2 border rounded text-sm w-32"><option value="ALL">전체</option><option value="pending">접수</option><option value="completed">발송완료</option></select></div>
+                  <div className="flex-1 min-w-[200px]"><label className="block text-xs font-medium text-gray-500 mb-1">통합 검색 (업소명, 신청자)</label><div className="relative"><input type="text" value={apronSearchKeyword} onChange={(e) => setApronSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" /><i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i></div></div>
                 </div>
-
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">신청수량</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                      </tr>
-                    </thead>
+                    <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">신청수량</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th></tr></thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredAprons.length === 0 ? (
-                        <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>
-                      ) : (
-                        filteredAprons.map(req => (
-                          <tr key={req.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(req.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {(req as any).business_name}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {req.quantity}장
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <select
-                                value={req.status}
-                                onChange={(e) => updateApronStatus(req.id, e.target.value)}
-                                className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-orange-500 ${req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}
-                              >
-                                <option value="pending">접수</option>
-                                <option value="completed">발송완료</option>
-                              </select>
-                            </td>
-                          </tr>
-                        ))
-                      )}
+                      {filteredAprons.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>) : (filteredAprons.map(req => (<tr key={req.id}><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(req as any).business_name}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{req.quantity}장</td><td className="px-6 py-4 whitespace-nowrap"><select value={req.status} onChange={(e) => updateApronStatus(req.id, e.target.value)} className={`text-sm rounded-full px-3 py-1 font-semibold border-none focus:ring-2 focus:ring-orange-500 ${req.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}><option value="pending">접수</option><option value="completed">발송완료</option></select></td></tr>)))}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* 3. USER LIST */}
+            {/* 3. USER LIST (Unchanged) */}
             {activeTab === 'users' && (
               <div>
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
-                  {/* Search */}
-                  <div className="flex-1 min-w-[300px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">회원 검색 (이름, 업소명, 연락처, 이메일, 사업자번호)</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={userSearchKeyword}
-                        onChange={(e) => setUserSearchKeyword(e.target.value)}
-                        placeholder="검색어를 입력하세요..."
-                        className="w-full p-2 pl-8 border rounded text-sm"
-                      />
-                      <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">가입일</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명 / 사업자번호</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처 / 이메일</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredUsers.length === 0 ? (
-                        <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>
-                      ) : (
-                        filteredUsers.map(u => (
-                          <tr key={u.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(u.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {u.name}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              <div className="font-semibold text-gray-700">{u.business_name || '-'}</div>
-                              <div className="text-xs">{u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}</div>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              <div className="text-gray-900">{u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</div>
-                              <div className="text-xs text-gray-400">{u.email || '-'}</div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {/* ... User content (Same as before) ... */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end"><div className="flex-1 min-w-[300px]"><label className="block text-xs font-medium text-gray-500 mb-1">회원 검색 (이름, 업소명, 연락처, 이메일, 사업자번호)</label><div className="relative"><input type="text" value={userSearchKeyword} onChange={(e) => setUserSearchKeyword(e.target.value)} placeholder="검색어를 입력하세요..." className="w-full p-2 pl-8 border rounded text-sm" /><i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i></div></div></div>
+                <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">가입일</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업소명 / 사업자번호</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연락처 / 이메일</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{filteredUsers.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td></tr>) : (filteredUsers.map(u => (<tr key={u.id} className="hover:bg-gray-50"><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td><td className="px-6 py-4 text-sm text-gray-500"><div className="font-semibold text-gray-700">{u.business_name || '-'}</div><div className="text-xs">{u.business_number ? u.business_number.replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3') : '-'}</div></td><td className="px-6 py-4 text-sm text-gray-500"><div className="text-gray-900">{u.phone ? u.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</div><div className="text-xs text-gray-400">{u.email || '-'}</div></td></tr>)))}</tbody></table></div>
               </div>
             )}
 
@@ -731,7 +527,7 @@ export const Admin: React.FC = () => {
                 <div className="mb-4 flex justify-between items-center">
                   <h2 className="text-xl font-bold text-gray-800">상품 목록</h2>
                   <button
-                    onClick={() => setShowProductForm(true)}
+                    onClick={handleAddNewClick}
                     className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-medium transition-colors"
                   >
                     + 상품 추가
@@ -739,128 +535,26 @@ export const Admin: React.FC = () => {
                 </div>
 
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap gap-4 items-end">
-                  {/* Category Filter */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
-                    <select
-                      value={productCategoryFilter}
-                      onChange={(e) => setProductCategoryFilter(e.target.value as any)}
-                      className="p-2 border rounded text-sm min-w-[100px]"
-                    >
-                      <option value="ALL">전체</option>
-                      <option value="CAN">캔</option>
-                      <option value="BOTTLE">페트병</option>
-                      <option value="WATER">생수</option>
-                    </select>
-                  </div>
-
-                  {/* Pepsi Filter */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">제품군</label>
-                    <select
-                      value={productPepsiFilter}
-                      onChange={(e) => setProductPepsiFilter(e.target.value as any)}
-                      className="p-2 border rounded text-sm min-w-[120px]"
-                    >
-                      <option value="ALL">전체</option>
-                      <option value="PEPSI_ONLY">펩시 제품만</option>
-                    </select>
-                  </div>
-
-                  {/* Search */}
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">상품 검색</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={productSearchKeyword}
-                        onChange={(e) => setProductSearchKeyword(e.target.value)}
-                        placeholder="상품명 검색..."
-                        className="w-full p-2 pl-8 border rounded text-sm"
-                      />
-                      <i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
-                    </div>
-                  </div>
+                  {/* Product Filters - Same as before */}
+                  <div><label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label><select value={productCategoryFilter} onChange={(e) => setProductCategoryFilter(e.target.value as any)} className="p-2 border rounded text-sm min-w-[100px]"><option value="ALL">전체</option><option value="CAN">캔</option><option value="BOTTLE">페트병</option><option value="WATER">생수</option></select></div>
+                  <div><label className="block text-xs font-medium text-gray-500 mb-1">제품군</label><select value={productPepsiFilter} onChange={(e) => setProductPepsiFilter(e.target.value as any)} className="p-2 border rounded text-sm min-w-[120px]"><option value="ALL">전체</option><option value="PEPSI_ONLY">펩시 제품만</option></select></div>
+                  <div className="flex-1 min-w-[200px]"><label className="block text-xs font-medium text-gray-500 mb-1">상품 검색</label><div className="relative"><input type="text" value={productSearchKeyword} onChange={(e) => setProductSearchKeyword(e.target.value)} placeholder="상품명 검색..." className="w-full p-2 pl-8 border rounded text-sm" /><i className="fa-solid fa-search absolute left-2.5 top-2.5 text-gray-400"></i></div></div>
                 </div>
 
-                {showProductForm && (
+                {/* Top Add New Form (Only visible when Adding New) */}
+                {showProductForm && !editingProductId && (
                   <div className="mb-6 bg-purple-50 p-6 rounded-lg border border-purple-200 animate-slide-in">
-                    <h3 className="text-lg font-bold mb-4 text-purple-800">{editingProduct ? '상품 수정' : '새 상품 추가'}</h3>
+                    <h3 className="text-lg font-bold mb-4 text-purple-800">새 상품 추가</h3>
+                    {/* Reuse Form Logic */}
                     <form onSubmit={handleProductSubmit} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">상품명 *</label>
-                          <input
-                            type="text"
-                            required
-                            value={productForm.name}
-                            onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="예: 펩시콜라 업소용 355ml (24캔)"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">가격 (원) *</label>
-                          <input
-                            type="number"
-                            required
-                            value={productForm.price}
-                            onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="17000"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 *</label>
-                          <select
-                            required
-                            value={productForm.category}
-                            onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none"
-                          >
-                            <option value="CAN">🥫 캔</option>
-                            <option value="BOTTLE">🍾 페트병</option>
-                            <option value="WATER">💧 생수</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">이미지 URL</label>
-                          <input
-                            type="text"
-                            value={productForm.image}
-                            onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="https://..."
-                          />
-                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">상품명 *</label><input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none" placeholder="예: 펩시콜라" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">가격 (원) *</label><input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none" placeholder="17000" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">카테고리 *</label><select required value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none"><option value="CAN">🥫 캔</option><option value="BOTTLE">🍾 페트병</option><option value="WATER">💧 생수</option></select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">이미지 URL</label><input type="text" value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none" /></div>
                       </div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="isPepsiFamily"
-                          checked={productForm.is_pepsi_family}
-                          onChange={(e) => setProductForm({ ...productForm, is_pepsi_family: e.target.checked })}
-                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                        />
-                        <label htmlFor="isPepsiFamily" className="ml-2 text-sm font-medium text-gray-700">
-                          펩시 제품군 (3+1 프로모션 대상)
-                        </label>
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          onClick={handleCancelProductForm}
-                          className="bg-white text-gray-700 px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-medium transition-colors"
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="submit"
-                          className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 font-medium transition-colors shadow-sm"
-                        >
-                          {editingProduct ? '수정 저장' : '상품 등록'}
-                        </button>
-                      </div>
+                      <div className="flex items-center"><input type="checkbox" id="isPepsiFamilyNew" checked={productForm.is_pepsi_family} onChange={(e) => setProductForm({ ...productForm, is_pepsi_family: e.target.checked })} className="w-4 h-4 text-purple-600 border-gray-300 rounded" /><label htmlFor="isPepsiFamilyNew" className="ml-2 text-sm font-medium text-gray-700">펩시 제품군 (3+1 프로모션 대상)</label></div>
+                      <div className="flex gap-2 justify-end"><button type="button" onClick={handleCancelProductForm} className="bg-white text-gray-700 px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">취소</button><button type="submit" className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 font-medium shadow-sm">상품 등록</button></div>
                     </form>
                   </div>
                 )}
@@ -878,52 +572,62 @@ export const Admin: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredProducts.length === 0 ? (
-                      <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        {products.length === 0 ? '등록된 상품이 없습니다.' : '검색 결과가 없습니다.'}
-                      </td></tr>
+                      <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">{products.length === 0 ? '등록된 상품이 없습니다.' : '검색 결과가 없습니다.'}</td></tr>
                     ) : (
                       filteredProducts.map(product => (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {product.image ? (
-                              <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded border border-gray-200" />
-                            ) : (
-                              <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400 text-xs">
-                                No Image
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                            {product.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.price.toLocaleString()}원
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.category === 'CAN' ? '🥫 캔' : product.category === 'BOTTLE' ? '🍾 페트병' : '💧 생수'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {product.is_pepsi_family ? (
-                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">펩시</span>
-                            ) : (
-                              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">일반</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                            <button
-                              onClick={() => handleEditProduct(product)}
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="text-red-600 hover:text-red-800 font-medium"
-                            >
-                              삭제
-                            </button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={product.id}>
+                          <tr className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {product.image ? (
+                                <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded border border-gray-200" />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.price.toLocaleString()}원</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category === 'CAN' ? '🥫 캔' : product.category === 'BOTTLE' ? '🍾 페트병' : '💧 생수'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {product.is_pepsi_family ? (<span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">펩시</span>) : (<span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">일반</span>)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                              <button
+                                onClick={() => handleEditProduct(product)}
+                                className={`font-medium ${editingProductId === product.id ? 'text-gray-900 font-bold underline' : 'text-blue-600 hover:text-blue-800'}`}
+                              >
+                                {editingProductId === product.id ? '수정 닫기' : '수정'}
+                              </button>
+                              <button
+                                onClick={() => initiateDeleteProduct(product)}
+                                className="text-red-600 hover:text-red-800 font-medium ml-2"
+                              >
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* INLINE EDIT FORM ROW */}
+                          {editingProductId === product.id && (
+                            <tr className="bg-purple-50 animate-fade-in">
+                              <td colSpan={6} className="px-6 py-6 border-b border-purple-100">
+                                <div className="relative">
+                                  <div className="absolute left-6 -top-8 w-4 h-4 bg-purple-50 transform rotate-45 border-l border-t border-purple-100"></div> {/* Arrow Indicator */}
+                                  <h4 className="font-bold text-gray-800 mb-4 flex items-center"><i className="fa-solid fa-pen-to-square mr-2 text-purple-600"></i> 상품 정보 수정</h4>
+                                  <form onSubmit={handleProductSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div><label className="block text-sm font-medium text-gray-700 mb-1">상품명 *</label><input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none bg-white" /></div>
+                                      <div><label className="block text-sm font-medium text-gray-700 mb-1">가격 (원) *</label><input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none bg-white" /></div>
+                                      <div><label className="block text-sm font-medium text-gray-700 mb-1">카테고리 *</label><select required value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none bg-white"><option value="CAN">🥫 캔</option><option value="BOTTLE">🍾 페트병</option><option value="WATER">💧 생수</option></select></div>
+                                      <div><label className="block text-sm font-medium text-gray-700 mb-1">이미지 URL</label><input type="text" value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md outline-none bg-white" /></div>
+                                    </div>
+                                    <div className="flex items-center"><input type="checkbox" id="isPepsiFamilyEdit" checked={productForm.is_pepsi_family} onChange={(e) => setProductForm({ ...productForm, is_pepsi_family: e.target.checked })} className="w-4 h-4 text-purple-600 border-gray-300 rounded bg-white" /><label htmlFor="isPepsiFamilyEdit" className="ml-2 text-sm font-medium text-gray-700">펩시 제품군 (3+1 프로모션 대상)</label></div>
+                                    <div className="flex gap-2 justify-end"><button type="button" onClick={handleCancelProductForm} className="bg-white text-gray-700 px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">취소</button><button type="submit" className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 font-medium shadow-sm">수정 저장</button></div>
+                                  </form>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))
                     )}
                   </tbody>
@@ -933,6 +637,56 @@ export const Admin: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Safe Delete Modal */}
+      {showDeleteModal && productToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <i className="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">상품 삭제 확인</h3>
+                <p className="text-sm text-gray-500">
+                  한번 삭제된 상품은 복구할 수 없습니다.<br />
+                  삭제하시려면 아래 입력창에 상품명을 정확히 입력해주세요.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-center">
+                <p className="font-bold text-gray-800 text-sm select-all">{productToDelete.name}</p>
+              </div>
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={deleteConfirmationName}
+                  onChange={(e) => setDeleteConfirmationName(e.target.value)}
+                  placeholder="상품명을 입력하세요"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-center"
+                />
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deleteConfirmationName !== productToDelete.name}
+                  className={`w-full py-3 px-4 rounded-lg font-bold text-white transition-all ${deleteConfirmationName === productToDelete.name
+                    ? 'bg-red-600 hover:bg-red-700 shadow-lg'
+                    : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                >
+                  삭제하기
+                </button>
+                <button
+                  onClick={() => { setShowDeleteModal(false); setProductToDelete(null); setDeleteConfirmationName(''); }}
+                  className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
