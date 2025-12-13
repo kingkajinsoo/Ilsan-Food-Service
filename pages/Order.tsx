@@ -731,10 +731,27 @@ export const Order: React.FC = () => {
             최근 주문내역 불러오기
           </button>
 
-          {quickOrderMode && (
-            <div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200 flex justify-between items-center">
-              <span className="text-blue-800 font-bold text-sm">✨ 지난번 주문상품만 모아보기</span>
-              <button onClick={handleExitQuickOrderMode} className="text-sm text-gray-500 underline">전체 보기</button>
+          {Object.keys(cart).length > 0 && (
+            <div
+              className={`mb-4 p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${quickOrderMode ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-gray-300 hover:bg-gray-50'
+                }`}
+              onClick={() => setQuickOrderMode(!quickOrderMode)}
+            >
+              <div className="flex items-center">
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 transition-colors ${quickOrderMode ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'
+                  }`}>
+                  {quickOrderMode && <i className="fa-solid fa-check text-white text-xs"></i>}
+                </div>
+                <span className={`font-bold ${quickOrderMode ? 'text-blue-800' : 'text-gray-700'}`}>
+                  담은 상품만 모아보기
+                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                    {Object.keys(cart).length}개
+                  </span>
+                </span>
+              </div>
+              <span className="text-sm text-gray-400 font-medium">
+                {quickOrderMode ? '전체 보기 >' : '클릭해서 필터링'}
+              </span>
             </div>
           )}
 
@@ -825,6 +842,16 @@ export const Order: React.FC = () => {
                 ))
             )}
           </div>
+
+          {quickOrderMode && (
+            <button
+              onClick={handleExitQuickOrderMode}
+              className="w-full mt-4 py-3 bg-white border-2 border-blue-500 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-colors"
+            >
+              <i className="fa-solid fa-plus mr-2"></i>
+              다른 상품 더 담기
+            </button>
+          )}
         </div>
 
         {/* Right: Summary & Form */}
