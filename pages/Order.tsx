@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { UserProfile, OrderItem, Product } from '../types';
+import { UserProfile, OrderItem, Product, UserAddress } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 // Simple Modal Component
@@ -40,6 +40,7 @@ export const Order: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>(''); // Progress Log
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [serviceProductOptions, setServiceProductOptions] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'CAN' | 'BOTTLE' | 'WATER'>('ALL');
@@ -148,109 +149,64 @@ export const Order: React.FC = () => {
           setFormData(prev => ({
             ...prev,
             business_name: profile.business_name || '',
-            businessNumber: 'business_number' in (profile as any)
-              ? formatBizNumber(((profile as any).business_number as string | null) || '')
-              : prev.businessNumber,
-            phone: profile.phone || ''
+            businessNumber: profile.business_number || '',
+            phone: profile.phone || '',
           }));
 
-          if ('business_number' in (profile as any)) {
-            setSupportsBizNumber(true);
-          }
-        }
-
-        // Calculate how many free service boxes (3+1) this user already received this month
-        try {
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-          const { data: pastOrders, error: pastOrdersError } = await supabase
-            .from('orders')
-            .select('service_items, created_at')
+          // 4. Load Saved Addresses
+          const { data: addressData } = await supabase
+            .from('user_addresses')
+            .select('*')
             .eq('user_id', session.user.id)
-            .gte('created_at', startOfMonth.toISOString());
+            .order('is_main', { ascending: false })
+            .order('created_at', { ascending: false });
 
-          if (!pastOrdersError && pastOrders) {
-            let used = 0;
-            (pastOrders as any[]).forEach((order: any) => {
-              const serviceItems = (order.service_items || []) as any[];
-              serviceItems.forEach((item: any) => {
-                if (item && typeof item.quantity === 'number') {
-                  used += item.quantity;
-                }
-              });
-            });
-            setUsedServiceBoxesThisMonth(used);
+          if (addressData && addressData.length > 0) {
+            setAddresses(addressData as UserAddress[]);
+            // If user has a main address, auto-fill it
+            const mainAddr = addressData.find((a: any) => a.is_main) || addressData[0];
+            setFormData(prev => ({
+              ...prev,
+              address: mainAddr.address,
+              detailAddress: mainAddr.detail_address || ''
+            }));
           }
-        } catch (e) {
-          console.error('Failed to calculate used service boxes this month', e);
+        }
+        // Fetch products from database
+        const { data: productsData, error: productsError } = await supabase.from('products').select('*');
+        if (productsError) {
+          console.error('Failed to load products:', productsError);
         }
 
-        // Determine whether this business will get apron auto-application on the next order
-        try {
-          const { count: existingOrderCount, error: orderCountError } = await supabase
-            .from('orders')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', session.user.id);
+        if (productsData) {
+          // Custom sort: 칠성사이다 → 펩시 → 기타
+          const sortedProducts = (productsData as Product[]).sort((a, b) => {
+            const aIsCider = a.name.includes('칠성사이다');
+            const bIsCider = b.name.includes('칠성사이다');
+            const aIsPepsi = a.name.includes('펩시');
+            const bIsPepsi = b.name.includes('펩시');
 
-          if (orderCountError) {
-            console.error('Failed to check existing orders for apron info', orderCountError);
-          } else {
-            const isFirstOrder = (existingOrderCount ?? 0) === 0;
+            // 칠성사이다 우선
+            if (aIsCider && !bIsCider) return -1;
+            if (!aIsCider && bIsCider) return 1;
 
-            const { data: apronData, error: apronError } = await supabase
-              .from('apron_requests')
-              .select('id')
-              .eq('user_id', session.user.id)
-              .limit(1);
+            // 펩시 다음
+            if (aIsPepsi && !bIsPepsi && !bIsCider) return -1;
+            if (!aIsPepsi && bIsPepsi && !aIsCider) return 1;
 
-            if (apronError) {
-              console.error('Failed to check existing apron_requests for apron info', apronError);
-            }
+            // 같은 그룹 내에서는 이름순
+            return a.name.localeCompare(b.name, 'ko');
+          });
 
-            const hasExistingApron = !!(apronData && apronData.length > 0);
-            setWillAutoApron(isFirstOrder && !hasExistingApron);
-          }
-        } catch (e) {
-          console.error('Failed to calculate apron auto-application info', e);
+          setProducts(sortedProducts);
+          // Filter service product options (Pepsi family or contains '칠성사이다' or '탐스')
+          const serviceOptions = sortedProducts.filter((p: Product) =>
+            p.is_pepsi_family || p.name.includes('칠성사이다') || p.name.includes('탐스')
+          );
+          setServiceProductOptions(serviceOptions as Product[]);
         }
       } else {
-        // No session found
         navigate('/');
-        return;
-      }
-
-      // Fetch products from database
-      const { data: productsData, error: productsError } = await supabase.from('products').select('*');
-      if (productsError) {
-        console.error('Failed to load products:', productsError);
-      }
-      if (productsData) {
-        // Custom sort: 칠성사이다 → 펩시 → 기타
-        const sortedProducts = (productsData as Product[]).sort((a, b) => {
-          const aIsCider = a.name.includes('칠성사이다');
-          const bIsCider = b.name.includes('칠성사이다');
-          const aIsPepsi = a.name.includes('펩시');
-          const bIsPepsi = b.name.includes('펩시');
-
-          // 칠성사이다 우선
-          if (aIsCider && !bIsCider) return -1;
-          if (!aIsCider && bIsCider) return 1;
-
-          // 펩시 다음
-          if (aIsPepsi && !bIsPepsi && !bIsCider) return -1;
-          if (!aIsPepsi && bIsPepsi && !aIsCider) return 1;
-
-          // 같은 그룹 내에서는 이름순
-          return a.name.localeCompare(b.name, 'ko');
-        });
-
-        setProducts(sortedProducts);
-        // Filter service product options (Pepsi family or contains '칠성사이다' or '탐스')
-        const serviceOptions = sortedProducts.filter((p: Product) =>
-          p.is_pepsi_family || p.name.includes('칠성사이다') || p.name.includes('탐스')
-        );
-        setServiceProductOptions(serviceOptions as Product[]);
       }
     };
     init();
@@ -536,6 +492,24 @@ export const Order: React.FC = () => {
 
       if (error) {
         throw error;
+      }
+
+      // 3.5. 주소 자동 저장 (신규 주소인 경우)
+      const isExistingAddress = addresses.some(
+        addr => addr.address === formData.address && addr.detail_address === formData.detailAddress
+      );
+
+      if (!isExistingAddress) {
+        console.log('New address detected, auto-saving...');
+        const { error: addressError } = await supabase.from('user_addresses').insert({
+          user_id: user.id,
+          address: formData.address,
+          detail_address: formData.detailAddress,
+          is_main: addresses.length === 0 // First address becomes main
+        });
+        if (addressError) {
+          console.error('Failed to auto-save address:', addressError);
+        }
       }
 
       // 4. 월별 무료 박스 사용량 업데이트
@@ -952,6 +926,34 @@ export const Order: React.FC = () => {
 
               {/* 주소 검색 */}
               <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-sm font-semibold text-gray-700">배송지</label>
+                  {addresses.length > 0 && (
+                    <select
+                      className="text-xs border border-blue-300 rounded px-2 py-1 text-blue-700 bg-blue-50 focus:outline-none"
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        if (!selectedId) return;
+                        const addr = addresses.find(a => a.id === selectedId);
+                        if (addr) {
+                          setFormData(prev => ({
+                            ...prev,
+                            address: addr.address,
+                            detailAddress: addr.detail_address || ''
+                          }));
+                        }
+                      }}
+                      value=""
+                    >
+                      <option value="">최근 배송지 불러오기</option>
+                      {addresses.slice(0, 5).map(addr => (
+                        <option key={addr.id} value={addr.id}>
+                          {addr.address} {addr.detail_address} {addr.is_main ? '(기본)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <input
                   type="text"
                   placeholder="배송지 주소"
@@ -966,7 +968,7 @@ export const Order: React.FC = () => {
                   onClick={openAddressSearch}
                   className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
                 >
-                  주소 검색
+                  <i className="fa-solid fa-search mr-2"></i>주소 검색 (도로명)
                 </button>
 
                 {formData.address && (

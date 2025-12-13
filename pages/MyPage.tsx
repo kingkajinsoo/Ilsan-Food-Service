@@ -314,8 +314,8 @@ export const MyPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('profile')}
           className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'profile'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'
             } `}
         >
           내 정보
@@ -323,8 +323,8 @@ export const MyPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('orders')}
           className={`px - 4 py - 2 font - semibold transition - colors ${activeTab === 'orders'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'
             } `}
         >
           주문 내역
@@ -508,13 +508,58 @@ export const MyPage: React.FC = () => {
               <div className="mb-4 p-4 bg-blue-50 rounded border border-blue-200">
                 <div className="mb-2">
                   <label className="block text-xs font-semibold text-gray-700 mb-1">주소</label>
-                  <input
-                    type="text"
-                    value={newAddress.address}
-                    onChange={(e) => setNewAddress({ ...newAddress, address: e.target.value })}
-                    placeholder="예: 경기도 고양시 일산서구..."
-                    className="w-full p-2 border rounded text-sm"
-                  />
+                  <div className="flex gap-2 mb-1">
+                    <input
+                      type="text"
+                      value={newAddress.address}
+                      required
+                      readOnly
+                      placeholder="주소 검색을 클릭하세요"
+                      className="flex-1 p-2 border rounded text-sm bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        if (!(window as any).daum?.Postcode) {
+                          alert('주소 검색 서비스가 로드되지 않았습니다.');
+                          return;
+                        }
+                        new (window as any).daum.Postcode({
+                          oncomplete: function (data: any) {
+                            const fullAddress = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+                            let extraAddress = '';
+                            if (data.userSelectedType === 'R') {
+                              if (data.bname !== '') extraAddress += data.bname;
+                              if (data.buildingName !== '') extraAddress += (extraAddress !== '' ? ', ' + data.buildingName : data.buildingName);
+                              if (extraAddress !== '') extraAddress = ' (' + extraAddress + ')';
+                            }
+                            setNewAddress(prev => ({ ...prev, address: fullAddress + extraAddress }));
+                          }
+                        }).open();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!(window as any).daum?.Postcode) {
+                          alert('주소 검색 서비스가 로드되지 않았습니다.');
+                          return;
+                        }
+                        new (window as any).daum.Postcode({
+                          oncomplete: function (data: any) {
+                            const fullAddress = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+                            let extraAddress = '';
+                            if (data.userSelectedType === 'R') {
+                              if (data.bname !== '') extraAddress += data.bname;
+                              if (data.buildingName !== '') extraAddress += (extraAddress !== '' ? ', ' + data.buildingName : data.buildingName);
+                              if (extraAddress !== '') extraAddress = ' (' + extraAddress + ')';
+                            }
+                            setNewAddress(prev => ({ ...prev, address: fullAddress + extraAddress }));
+                          }
+                        }).open();
+                      }}
+                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm whitespace-nowrap hover:bg-blue-700"
+                    >
+                      주소 검색
+                    </button>
+                  </div>
                 </div>
                 <div className="mb-2">
                   <label className="block text-xs font-semibold text-gray-700 mb-1">상세주소</label>
@@ -545,8 +590,8 @@ export const MyPage: React.FC = () => {
                   <div
                     key={addr.id}
                     className={`p - 3 rounded border ${addr.is_main
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'bg-gray-50 border-gray-200'
+                      ? 'bg-blue-50 border-blue-300'
+                      : 'bg-gray-50 border-gray-200'
                       } `}
                   >
                     <div className="flex items-start justify-between">
