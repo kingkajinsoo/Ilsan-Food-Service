@@ -61,6 +61,12 @@ export const Admin: React.FC = () => {
   const [userActionTarget, setUserActionTarget] = useState<UserProfile | null>(null);
   const [userActionEmail, setUserActionEmail] = useState('');
 
+  // Order Restore Modal State
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreActionTarget, setRestoreActionTarget] = useState<any | null>(null);
+  const [restoreActionStatus, setRestoreActionStatus] = useState('');
+  const [restoreConfirmationInput, setRestoreConfirmationInput] = useState('');
+
 
   // Helper for date range buttons
   const setDateRangeHelper = (range: '1W' | '1M' | '3M', type: 'order' | 'apron') => {
@@ -185,8 +191,29 @@ export const Admin: React.FC = () => {
     }
   };
 
-  const updateOrderStatus = async (id: string, status: string) => {
-    await supabase.from('orders').update({ status }).eq('id', id);
+  const updateOrderStatus = async (id: string, newStatus: string) => {
+    const targetOrder = orders.find(o => o.id === id);
+    if (!targetOrder) return;
+
+    // 1. Safety Check: Restoring a cancelled order
+    if (targetOrder.status === 'cancelled' && newStatus !== 'cancelled') {
+      // Open Restore Modal
+      setRestoreActionTarget(targetOrder);
+      setRestoreActionStatus(newStatus);
+      setRestoreConfirmationInput('');
+      setShowRestoreModal(true);
+      return;
+    }
+
+    // 2. Safety Check: Cancelling an order (Admin initiated)
+    if (newStatus === 'cancelled') {
+      if (!confirm('정말 이 주문을 [취소] 처리하시겠습니까?')) {
+        fetchOrders();
+        return;
+      }
+    }
+
+    await supabase.from('orders').update({ status: newStatus }).eq('id', id);
     fetchOrders();
   };
 
@@ -343,6 +370,37 @@ export const Admin: React.FC = () => {
       }
     }
     setShowUserActionModal(false);
+  };
+
+  const executeRestoreOrder = async () => {
+    if (!restoreActionTarget || !restoreActionStatus) return;
+
+    // Find target user's business number
+    // We can use the 'users' array which contains all users
+    const targetUser = users.find(u => u.id === restoreActionTarget.user_id);
+
+    if (!targetUser) {
+      alert('주문자 정보를 찾을 수 없어 복구가 불가능합니다.');
+      return;
+    }
+
+    // Business Number Check (strict)
+    // Remove dashes for comparison just in case
+    const inputCleaned = restoreConfirmationInput.replace(/-/g, '').trim();
+    const targetCleaned = (targetUser.business_number || '').replace(/-/g, '').trim();
+
+    if (inputCleaned !== targetCleaned) {
+      // Just return, button should be disabled anyway, but double check
+      return;
+    }
+
+    await supabase.from('orders').update({ status: restoreActionStatus }).eq('id', restoreActionTarget.id);
+    alert('주문 상태가 복구되었습니다.');
+    fetchOrders();
+    setShowRestoreModal(false);
+    setRestoreActionTarget(null);
+    setRestoreActionStatus('');
+    setRestoreConfirmationInput('');
   };
 
   const handleCancelProductForm = () => {
@@ -980,6 +1038,61 @@ export const Admin: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowUserActionModal(false)}
+                  className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Restore Modal */}
+      {showRestoreModal && restoreActionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-orange-100">
+                  <i className="fa-solid fa-rotate-left text-orange-600 text-xl"></i>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">취소된 주문 복구</h3>
+                <p className="text-sm text-gray-500">
+                  이미 취소된 주문을 강제로 복구하려고 합니다.<br />
+                  배송 사고 예방을 위해 <b>주문자의 사업자번호</b>를 입력해주세요.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-center">
+                <p className="text-xs text-gray-500 mb-1">입력해야 할 사업자번호</p>
+                {/* We need to find the business number from users list */}
+                <p className="font-bold text-gray-800 text-sm select-all">
+                  {users.find(u => u.id === restoreActionTarget.user_id)?.business_number || '사업자번호 없음'}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={restoreConfirmationInput}
+                  onChange={(e) => setRestoreConfirmationInput(e.target.value)}
+                  placeholder="사업자번호를 입력하세요 ('-' 제외)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 outline-none text-center"
+                />
+                <button
+                  onClick={executeRestoreOrder}
+                  // Logic: Clean confirm input and target number, check equality
+                  disabled={!users.find(u => u.id === restoreActionTarget.user_id)?.business_number || restoreConfirmationInput.replace(/-/g, '').trim() !== (users.find(u => u.id === restoreActionTarget.user_id)?.business_number || '').replace(/-/g, '').trim()}
+                  className={`w-full py-3 px-4 rounded-lg font-bold text-white transition-all ${users.find(u => u.id === restoreActionTarget.user_id)?.business_number && restoreConfirmationInput.replace(/-/g, '').trim() === (users.find(u => u.id === restoreActionTarget.user_id)?.business_number || '').replace(/-/g, '').trim()
+                    ? 'bg-orange-600 hover:bg-orange-700'
+                    : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                >
+                  주문 복구하기
+                </button>
+                <button
+                  onClick={() => { setShowRestoreModal(false); setRestoreConfirmationInput(''); setRestoreActionTarget(null); }}
                   className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
                 >
                   취소
