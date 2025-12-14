@@ -35,6 +35,23 @@ const Modal = ({ isOpen, title, message, onClose, type = 'info' }: {
   );
 };
 
+// Helpers for formatting business registration number & phone number
+const formatBizNumber = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 10); // 최대 10자리 (예: 123-45-67890)
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+};
+
+const formatPhoneNumber = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 11); // 국내 휴대폰 10~11자리 기준
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  // 9자리 이상이면 끝 4자리 분리
+  if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  return digits;
+};
+
 export const Order: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -207,8 +224,8 @@ export const Order: React.FC = () => {
           setFormData(prev => ({
             ...prev,
             business_name: profile.business_name || '',
-            businessNumber: profile.business_number || '',
-            phone: profile.phone || '',
+            businessNumber: profile.business_number ? formatBizNumber(profile.business_number) : '',
+            phone: profile.phone ? formatPhoneNumber(profile.phone) : '',
           }));
 
           // 4. Load Saved Addresses
@@ -270,22 +287,7 @@ export const Order: React.FC = () => {
     init();
   }, [navigate]);
 
-  // Helpers for formatting business registration number & phone number
-  const formatBizNumber = (value: string): string => {
-    const digits = value.replace(/\D/g, '').slice(0, 10); // 최대 10자리 (예: 123-45-67890)
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
-  };
 
-  const formatPhoneNumber = (value: string): string => {
-    const digits = value.replace(/\D/g, '').slice(0, 11); // 국내 휴대폰 10~11자리 기준
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    // 9자리 이상이면 끝 4자리 분리
-    if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-    return digits;
-  };
 
   // Business Number Usage Fetch Effect
   useEffect(() => {
