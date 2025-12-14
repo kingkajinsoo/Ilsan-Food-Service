@@ -287,34 +287,42 @@ export const Order: React.FC = () => {
     return digits;
   };
 
-  const handleBusinessNumberChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Business Number Usage Fetch Effect
+  useEffect(() => {
+    const raw = formData.businessNumber.replace(/\D/g, '');
+    if (raw.length === 10) {
+      const fetchUsage = async () => {
+        const yearMonth = new Date().toISOString().slice(0, 7); // "2025-01"
+        try {
+          const { data, error } = await supabase
+            .from('monthly_service_usage')
+            .select('used_boxes')
+            .eq('business_number', formData.businessNumber) // DB stores formatted: 123-45-67890
+            .eq('year_month', yearMonth)
+            .single();
+
+          if (error && error.code !== 'PGRST116') {
+            console.error('월별 사용량 조회 실패:', error);
+          }
+          setUsedServiceBoxesThisMonth(data?.used_boxes || 0);
+        } catch (e) {
+          console.error('월별 사용량 조회 실패:', e);
+          setUsedServiceBoxesThisMonth(0);
+        }
+      };
+      fetchUsage();
+    } else {
+      setUsedServiceBoxesThisMonth(0);
+    }
+  }, [formData.businessNumber]);
+
+  const handleBusinessNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
     const formatted = formatBizNumber(raw);
     setFormData(prev => ({
       ...prev,
       businessNumber: formatted,
     }));
-
-    // 사업자번호 10자리 완성되면 월별 사용량 조회
-    if (raw.length === 10) {
-      const yearMonth = new Date().toISOString().slice(0, 7); // "2025-01"
-      try {
-        const { data, error } = await supabase
-          .from('monthly_service_usage')
-          .select('used_boxes')
-          .eq('business_number', formatted)
-          .eq('year_month', yearMonth)
-          .single();
-
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
-          console.error('월별 사용량 조회 실패:', error);
-        }
-        setUsedServiceBoxesThisMonth(data?.used_boxes || 0);
-      } catch (e) {
-        console.error('월별 사용량 조회 실패:', e);
-        setUsedServiceBoxesThisMonth(0);
-      }
-    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -520,22 +528,29 @@ export const Order: React.FC = () => {
 
       // 2. 회원 정보 업데이트
       setProcessingStatus('2/5. 회원 정보 업데이트 중...');
-      const currentBizNumberRaw = supportsBizNumber
-        ? ((((user as any).business_number as string | null) || '').replace(/\D/g, ''))
-        : '';
+
       const newBizNumberRaw = formData.businessNumber.replace(/\D/g, '');
+
+      // Check if business name/number is new (only if they were empty initially)
+      const shouldUpdateBusinessName = !user.business_name && formData.business_name;
+      const shouldUpdateBusinessNumber = !user.business_number && newBizNumberRaw.length === 10;
 
       const shouldUpdateUser =
         user.phone !== formData.phone ||
-        (supportsBizNumber && currentBizNumberRaw !== newBizNumberRaw);
+        shouldUpdateBusinessName ||
+        shouldUpdateBusinessNumber;
 
       if (shouldUpdateUser) {
         const updatePayload: any = {
           phone: formData.phone,
         };
-        if (supportsBizNumber) {
+        if (shouldUpdateBusinessNumber) {
           updatePayload.business_number = newBizNumberRaw;
         }
+        if (shouldUpdateBusinessName) {
+          updatePayload.business_name = formData.business_name;
+        }
+
         const { error: userUpdateError } = await supabase
           .from('users')
           .update(updatePayload)
@@ -1056,11 +1071,19 @@ export const Order: React.FC = () => {
                   type="text"
                   placeholder="업소명 (상호)"
                   required
-                  readOnly
-                  className="w-full p-2 border rounded text-sm bg-green-50 border-green-500 text-gray-700 cursor-not-allowed focus:outline-none"
+                  readOnly={!!user?.business_name}
+                  className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!!user?.business_name
+                    ? 'bg-green-50 border-green-500 text-gray-700 cursor-not-allowed'
+                    : 'bg-white border-gray-300'
+                    }`}
                   value={formData.business_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, business_name: e.target.value }))}
                 />
-                <p className="text-gray-500 text-xs mt-1">※ 상호명은 '마이페이지 &gt; 내 정보'에서 수정 가능합니다.</p>
+                {!!user?.business_name ? (
+                  <p className="text-gray-500 text-xs mt-1">※ 상호명은 '마이페이지 &gt; 내 정보'에서 수정 가능합니다.</p>
+                ) : (
+                  <p className="text-blue-600 text-xs mt-1">※ 상호명을 입력해주세요. (첫 주문 시 자동 저장됩니다)</p>
+                )}
               </div>
 
               {/* 사업자등록번호 */}
@@ -1070,17 +1093,32 @@ export const Order: React.FC = () => {
                   placeholder="사업자등록번호 (10자리 입력)"
                   maxLength={12}
                   required
-                  className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${formData.businessNumber.replace(/\D/g, '').length === 10 ? 'border-green-500 bg-green-50' :
-                    formData.businessNumber.length > 0 ? 'border-red-300 bg-red-50' : ''
+                  readOnly={!!user?.business_number}
+                  className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!!user?.business_number
+                    ? 'bg-green-50 border-green-500 text-gray-700 cursor-not-allowed'
+                    : formData.businessNumber.replace(/\D/g, '').length === 10
+                      ? 'border-green-500 bg-green-50'
+                      : formData.businessNumber.length > 0
+                        ? 'border-red-300 bg-red-50'
+                        : ''
                     }`}
                   value={formData.businessNumber}
                   onChange={handleBusinessNumberChange}
                 />
-                {formData.businessNumber.length > 0 && formData.businessNumber.replace(/\D/g, '').length !== 10 && (
-                  <p className="text-red-500 text-xs mt-1 font-bold">⚠️ 사업자번호 10자리를 모두 입력해주세요.</p>
-                )}
-                {formData.businessNumber.replace(/\D/g, '').length === 10 && (
-                  <p className="text-green-600 text-xs mt-1 font-bold">✅ 올바른 형식입니다.</p>
+                {!!user?.business_number ? (
+                  <p className="text-green-600 text-xs mt-1 font-bold">✅ 등록된 사업자번호입니다.</p>
+                ) : (
+                  <>
+                    {formData.businessNumber.length > 0 && formData.businessNumber.replace(/\D/g, '').length !== 10 && (
+                      <p className="text-red-500 text-xs mt-1 font-bold">⚠️ 사업자번호 10자리를 모두 입력해주세요.</p>
+                    )}
+                    {formData.businessNumber.replace(/\D/g, '').length === 10 && (
+                      <p className="text-green-600 text-xs mt-1 font-bold">✅ 올바른 형식입니다.</p>
+                    )}
+                    {!formData.businessNumber && (
+                      <p className="text-blue-600 text-xs mt-1">※ 사업자번호를 입력해주세요. (서비스 혜택 확인용)</p>
+                    )}
+                  </>
                 )}
               </div>
 
