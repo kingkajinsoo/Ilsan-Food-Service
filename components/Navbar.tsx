@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
+import { NotificationBell } from './NotificationBell';
 
 interface MobileNavLinkProps {
   to: string;
@@ -202,6 +203,7 @@ export const Navbar: React.FC = () => {
                   <Link to="/admin" className="text-red-600 font-bold hover:text-red-800">관리자</Link>
                 )}
                 <span className="text-gray-400">|</span>
+                <NotificationBell />
                 <span className="text-sm text-gray-600">{user.business_name || user.name}님</span>
                 <button
                   onClick={handleLogout}
